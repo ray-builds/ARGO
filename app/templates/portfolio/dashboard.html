@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% block title %}Portfolio{% endblock %}
+{% block page_title %}Portfolio Intelligence{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-sm btn-primary" onclick="openModal('upload-modal')">⬆ Upload Positions</button>
+<button class="btn btn-sm btn-secondary" onclick="runScenario()">🧪 Run Scenario</button>
+<button class="btn btn-sm btn-ghost" onclick="analyzeConvexity()">⚡ Convexity Analysis</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ Stats Strip ═══════════════════════════ -->
+<div class="stats-strip card" style="margin-bottom:16px;">
+    <div class="stat-item">
+        <div class="stat-label">Total Positions</div>
+        <div class="stat-value" id="stat-positions">—</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+        <div class="stat-label">NAV</div>
+        <div class="stat-value" id="stat-nav">—</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+        <div class="stat-label">Asset Classes</div>
+        <div class="stat-value" id="stat-classes">—</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+        <div class="stat-label">Long Exposure</div>
+        <div class="stat-value" id="stat-long" style="color:#16a34a;">—</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+        <div class="stat-label">Short Exposure</div>
+        <div class="stat-value" id="stat-short" style="color:#dc2626;">—</div>
+    </div>
+</div>
+
+<!-- ══ Charts Row ════════════════════════════ -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Allocation by Asset Class</h2>
+        </div>
+        <div class="card-body" style="height:260px; display:flex; align-items:center; justify-content:center;" id="allocation-chart-container">
+            <div class="loading-overlay"><div class="loading-spinner"></div> Loading chart…</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Long / Short Breakdown</h2>
+        </div>
+        <div class="card-body" style="height:260px; display:flex; align-items:center; justify-content:center;" id="direction-chart-container">
+            <div class="loading-overlay"><div class="loading-spinner"></div> Loading chart…</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ══ Positions Table ════════════════════════ -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Positions</h2>
+        <div style="display:flex; gap:8px; align-items:center;">
+            <div class="search-bar">
+                <input type="text" id="pos-search" placeholder="Search instruments…"
+                       oninput="filterPositions()" style="width:180px;">
+            </div>
+            <select class="form-control" id="pos-direction" onchange="filterPositions()"
+                    style="width:100px; padding:5px 8px; font-size:12px;">
+                <option value="">All</option>
+                <option value="LONG">Long</option>
+                <option value="SHORT">Short</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="positions-loading">
+        <div class="loading-spinner"></div> Loading positions…
+    </div>
+
+    <div class="table-wrapper" id="positions-table-wrapper" style="display:none;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Instrument</th>
+                    <th>Type</th>
+                    <th>Asset Class</th>
+                    <th style="width:80px;">Direction</th>
+                    <th style="text-align:right;">Notional</th>
+                    <th style="text-align:right;">Weight %</th>
+                    <th style="text-align:right;">P&amp;L (unrlzd)</th>
+                </tr>
+            </thead>
+            <tbody id="positions-tbody"></tbody>
+        </table>
+    </div>
+
+    <div class="empty-state" id="positions-empty" style="display:none;">
+        <div class="empty-state-icon">📈</div>
+        <div class="empty-state-title">No positions loaded</div>
+        <div class="empty-state-desc">Upload a positions CSV to populate this table.</div>
+    </div>
+</div>
+
+<!-- ══ Upload Modal ══════════════════════════ -->
+<div class="modal" id="upload-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-card">
+        <div class="modal-header">
+            <span class="modal-title">⬆ Upload Positions</span>
+            <button class="modal-close" onclick="closeModal('upload-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                Upload a CSV file with columns: instrument, type, asset_class, direction, notional, weight.
+            </p>
+            <div class="drop-zone" onclick="document.getElementById('pos-file').click()">
+                <div class="drop-zone-icon">📊</div>
+                <div class="drop-zone-text" id="pos-file-label">Click to select CSV file</div>
+                <div class="drop-zone-sub">CSV format only</div>
+            </div>
+            <input type="file" id="pos-file" style="display:none;" accept=".csv"
+                   onchange="document.getElementById('pos-file-label').textContent = this.files[0]?.name || 'File selected'">
+            <div class="form-group" style="margin-top:16px;">
+                <label>As-of Date</label>
+                <input type="date" class="form-control" id="pos-date">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('upload-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitPositions()">Upload</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ Scenario Modal ════════════════════════ -->
+<div class="modal" id="scenario-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-card">
+        <div class="modal-header">
+            <span class="modal-title">🧪 Run Scenario Analysis</span>
+            <button class="modal-close" onclick="closeModal('scenario-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Describe the scenario</label>
+                <textarea class="form-control" id="scenario-description" rows="4"
+                          placeholder="e.g. UST 10Y yields rise 100bps, USD strengthens 5%, S&P falls 10%"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('scenario-modal')">Cancel</button>
+            <button class="btn btn-primary" id="scenario-run-btn" onclick="submitScenario()">Run Analysis</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.stats-strip { display:flex; align-items:center; padding:14px 24px; gap:0; flex-wrap:wrap; }
+.stat-item   { display:flex; flex-direction:column; gap:2px; padding:4px 20px 4px 0; }
+.stat-divider{ width:1px; height:36px; background:var(--border); margin:0 20px 0 0; flex-shrink:0; }
+.stat-label  { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+.stat-value  { font-size:20px; font-weight:700; color:var(--navy); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+let allPositions = [];
+let allocChart   = null;
+let dirChart     = null;
+
+document.addEventListener('DOMContentLoaded', async function () {
+    const d = document.getElementById('pos-date');
+    if (d) d.value = new Date().toISOString().slice(0, 10);
+    await loadPortfolio();
+});
+
+async function loadPortfolio() {
+    try {
+        const data = await argoFetch('/api/v1/portfolio/positions');
+        allPositions = data.positions || data || [];
+        const composition = data.composition || computeComposition(allPositions);
+
+        renderStats(data);
+        renderPositions(allPositions);
+        renderAllocationChart(composition);
+        renderDirectionChart(allPositions);
+    } catch (_) {
+        document.getElementById('positions-loading').innerHTML =
+            '<p style="color:var(--text-muted); padding:20px; text-align:center;">No portfolio data loaded yet.</p>';
+        document.getElementById('allocation-chart-container').innerHTML =
+            '<div class="empty-state" style="padding:24px;"><div class="empty-state-icon">📊</div><div class="empty-state-title">No data</div></div>';
+        document.getElementById('direction-chart-container').innerHTML =
+            '<div class="empty-state" style="padding:24px;"><div class="empty-state-icon">📊</div><div class="empty-state-title">No data</div></div>';
+    }
+}
+
+function renderStats(data) {
+    document.getElementById('stat-positions').textContent = allPositions.length || '—';
+    document.getElementById('stat-nav').textContent       = data.nav ? formatCurrency(data.nav) : '—';
+    const classes = new Set(allPositions.map(function (p) { return p.asset_class; }).filter(Boolean));
+    document.getElementById('stat-classes').textContent  = classes.size || '—';
+
+    const longs  = allPositions.filter(function (p) { return p.direction === 'LONG'; });
+    const shorts = allPositions.filter(function (p) { return p.direction === 'SHORT'; });
+    const sumNotional = function (arr) { return arr.reduce(function (s, p) { return s + (p.notional || 0); }, 0); };
+    document.getElementById('stat-long').textContent  = longs.length  ? formatCurrency(sumNotional(longs))  : '—';
+    document.getElementById('stat-short').textContent = shorts.length ? formatCurrency(sumNotional(shorts)) : '—';
+}
+
+function renderPositions(positions) {
+    document.getElementById('positions-loading').style.display = 'none';
+    if (!positions.length) {
+        document.getElementById('positions-empty').style.display = 'block';
+        return;
+    }
+    document.getElementById('positions-table-wrapper').style.display = 'block';
+    document.getElementById('positions-tbody').innerHTML = positions.map(function (p) {
+        const dir    = (p.direction || 'LONG').toUpperCase();
+        const dirCls = dir === 'LONG' ? 'long' : 'short';
+        const pnl    = p.unrealized_pnl != null ? formatCurrency(p.unrealized_pnl) : '—';
+        const pnlClr = p.unrealized_pnl > 0 ? '#16a34a' : p.unrealized_pnl < 0 ? '#dc2626' : '';
+        return `
+            <tr>
+                <td style="font-weight:600;">${esc(p.instrument || p.ticker || '—')}</td>
+                <td style="font-size:12px; color:var(--text-secondary);">${esc(p.instrument_type || p.type || '—')}</td>
+                <td><span class="badge" style="background:var(--light-bg); color:var(--text-secondary);">${esc(p.asset_class || '—')}</span></td>
+                <td><span class="badge badge-${dirCls}">${dir}</span></td>
+                <td style="text-align:right; font-size:13px;">${p.notional != null ? formatCurrency(p.notional) : '—'}</td>
+                <td style="text-align:right; font-size:13px;">${p.weight != null ? (p.weight * 100).toFixed(2) + '%' : '—'}</td>
+                <td style="text-align:right; font-size:13px; color:${pnlClr}; font-weight:${pnlClr ? '600' : '400'};">${pnl}</td>
+            </tr>`;
+    }).join('');
+}
+
+function computeComposition(positions) {
+    const map = {};
+    positions.forEach(function (p) {
+        const ac = p.asset_class || 'Other';
+        map[ac] = (map[ac] || 0) + Math.abs(p.notional || 0);
+    });
+    return Object.entries(map).map(function ([k, v]) { return { asset_class: k, total_notional: v }; });
+}
+
+function renderAllocationChart(composition) {
+    const container = document.getElementById('allocation-chart-container');
+    if (!composition.length) {
+        container.innerHTML = '<div class="empty-state" style="padding:24px;"><div class="empty-state-icon">📊</div><div class="empty-state-title">No data</div></div>';
+        return;
+    }
+    container.innerHTML = '<canvas id="allocation-canvas"></canvas>';
+    const ctx = document.getElementById('allocation-canvas').getContext('2d');
+    const colors = ['#010042','#1D3569','#2685B5','#0A8FB7','#16a34a','#dc2626','#7c3aed','#ea580c'];
+    allocChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: composition.map(function (c) { return c.asset_class; }),
+            datasets: [{ data: composition.map(function (c) { return c.total_notional; }), backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }],
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } } } },
+    });
+}
+
+function renderDirectionChart(positions) {
+    const container = document.getElementById('direction-chart-container');
+    if (!positions.length) {
+        container.innerHTML = '<div class="empty-state" style="padding:24px;"><div class="empty-state-icon">📊</div><div class="empty-state-title">No data</div></div>';
+        return;
+    }
+    container.innerHTML = '<canvas id="direction-canvas"></canvas>';
+    const ctx    = document.getElementById('direction-canvas').getContext('2d');
+    const longs  = positions.filter(function (p) { return p.direction === 'LONG'; }).reduce(function (s, p) { return s + Math.abs(p.notional || 0); }, 0);
+    const shorts = positions.filter(function (p) { return p.direction === 'SHORT'; }).reduce(function (s, p) { return s + Math.abs(p.notional || 0); }, 0);
+    dirChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Long', 'Short'],
+            datasets: [{ data: [longs, shorts], backgroundColor: ['#16a34a', '#dc2626'], borderRadius: 4 }],
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { font: { size: 11 } } }, x: { ticks: { font: { size: 11 } } } } },
+    });
+}
+
+function filterPositions() {
+    const q   = (document.getElementById('pos-search').value || '').toLowerCase();
+    const dir = document.getElementById('pos-direction').value;
+    const filtered = allPositions.filter(function (p) {
+        if (dir && p.direction !== dir) return false;
+        if (q) {
+            const hay = [p.instrument, p.ticker, p.asset_class].join(' ').toLowerCase();
+            if (!hay.includes(q)) return false;
+        }
+        return true;
+    });
+    renderPositions(filtered);
+}
+
+async function submitPositions() {
+    const file = document.getElementById('pos-file').files[0];
+    const date = document.getElementById('pos-date').value;
+    if (!file) { showToast('Please select a CSV file', 'warning'); return; }
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('as_of_date', date);
+    try {
+        const resp = await fetch('/api/v1/portfolio/upload', { method: 'POST', body: fd });
+        if (!resp.ok) throw new Error(`Upload failed: ${resp.status}`);
+        closeModal('upload-modal');
+        showToast('Positions uploaded', 'success');
+        await loadPortfolio();
+    } catch (err) { showToast(err.message, 'error'); }
+}
+
+function runScenario() { openModal('scenario-modal'); }
+
+async function submitScenario() {
+    const description = document.getElementById('scenario-description').value.trim();
+    if (!description) { showToast('Please describe the scenario', 'warning'); return; }
+    const btn = document.getElementById('scenario-run-btn');
+    btn.disabled = true; btn.textContent = 'Analysing…';
+    try {
+        const result = await argoFetch('/api/v1/portfolio/scenario', {
+            method: 'POST',
+            body: JSON.stringify({ description }),
+        });
+        closeModal('scenario-modal');
+        showToast('Scenario analysis complete', 'success');
+        if (result.id) window.location = `/portfolio/scenario/${result.id}`;
+    } catch (_) {
+    } finally {
+        btn.disabled = false; btn.textContent = 'Run Analysis';
+    }
+}
+
+async function analyzeConvexity() {
+    showToast('Running convexity analysis…', 'info');
+    try {
+        const result = await argoFetch('/api/v1/portfolio/convexity', { method: 'POST' });
+        showToast('Convexity analysis complete', 'success');
+        if (result.id) window.location = `/portfolio/convexity/${result.id}`;
+    } catch (_) {}
+}
+
+function esc(t) {
+    if (!t) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block title %}{{ meeting.title if meeting else 'Meeting' }}{% endblock %}
+{% block page_title %}Meeting Detail{% endblock %}
+
+{% block topbar_actions %}
+<a href="/meetings" class="btn btn-sm btn-ghost">← Back to Meetings</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- Meeting header loaded dynamically if no server-rendered meeting variable -->
+<div id="meeting-header">
+{% if meeting %}
+    <div class="card" style="margin-bottom:16px;">
+        <div class="card-body" style="padding:20px 24px;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+                <div>
+                    <h2 style="font-size:20px; font-weight:700; color:var(--navy); margin-bottom:8px;">
+                        {{ meeting.title }}
+                    </h2>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; font-size:13px; color:var(--text-secondary);">
+                        {% set tc = (meeting.meeting_type or 'internal').lower() %}
+                        <span class="badge badge-type-{{ tc }}">{{ meeting.meeting_type }}</span>
+                        {% if meeting.status == 'complete' %}
+                            <span class="badge badge-complete">Complete</span>
+                        {% elif meeting.status == 'error' %}
+                            <span class="badge badge-error">Error</span>
+                        {% else %}
+                            <span class="badge badge-pending">Pending</span>
+                        {% endif %}
+                        {% if meeting.meeting_date %}
+                        <span>📅 {{ meeting.meeting_date[:10] }}</span>
+                        {% endif %}
+                        {% if meeting.duration_minutes %}
+                        <span>⏱ {{ meeting.duration_minutes }} min</span>
+                        {% endif %}
+                        {% if meeting.attendees %}
+                        <span>👥 {{ meeting.attendees | join(', ') }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% else %}
+    <!-- Loaded dynamically -->
+    <div class="card" style="margin-bottom:16px;">
+        <div class="card-body loading-overlay" id="header-loading">
+            <div class="loading-spinner"></div> Loading meeting…
+        </div>
+    </div>
+{% endif %}
+</div>
+
+<!-- ══ Tab Navigation ════════════════════════ -->
+<div class="card">
+    <div style="border-bottom:2px solid var(--border);">
+        <div class="tab-nav" style="border-bottom:none; padding: 0 4px;">
+            <button class="tab-btn active" onclick="activateTab('tab-summary', this)">📋 Summary</button>
+            <button class="tab-btn" onclick="activateTab('tab-transcript', this)">📝 Transcript</button>
+            <button class="tab-btn" onclick="activateTab('tab-actions', this)">✅ Action Items</button>
+        </div>
+    </div>
+
+    <div class="tab-panels" style="padding:20px;">
+
+        <!-- Summary Panel -->
+        <div class="tab-panel active" id="tab-summary">
+            <div id="summary-content">
+                {% if meeting and meeting.summary %}
+                <div style="font-size:14px; line-height:1.8; color:var(--text-secondary); white-space:pre-wrap;">{{ meeting.summary }}</div>
+                {% elif meeting and meeting.status == 'pending' %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">⏳</div>
+                    <div class="empty-state-title">Transcription in progress</div>
+                    <div class="empty-state-desc">The summary will appear here once transcription is complete.</div>
+                </div>
+                {% else %}
+                <div class="loading-overlay"><div class="loading-spinner"></div> Loading…</div>
+                {% endif %}
+            </div>
+
+            {% if meeting and meeting.key_themes %}
+            <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
+                <div class="section-title">Key Themes</div>
+                <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+                    {% for theme in meeting.key_themes %}
+                    <span style="background:var(--light-bg); border:1px solid var(--border); border-radius:20px; padding:4px 12px; font-size:12px; color:var(--text-secondary);">
+                        {{ theme }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Transcript Panel -->
+        <div class="tab-panel" id="tab-transcript">
+            <div id="transcript-content">
+                {% if meeting and meeting.transcript %}
+                <div style="font-size:13px; line-height:1.9; color:var(--text-secondary); white-space:pre-wrap; font-family: 'SF Mono', 'Fira Code', monospace; max-height:600px; overflow-y:auto; background:var(--light-bg); padding:16px; border-radius:6px;">{{ meeting.transcript }}</div>
+                {% elif meeting and meeting.status == 'pending' %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">⏳</div>
+                    <div class="empty-state-title">Transcription pending</div>
+                    <div class="empty-state-desc">Transcript will appear here once complete.</div>
+                </div>
+                {% else %}
+                <div class="loading-overlay"><div class="loading-spinner"></div> Loading transcript…</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Action Items Panel -->
+        <div class="tab-panel" id="tab-actions">
+            <div id="action-items-content">
+                {% if meeting and meeting.action_items %}
+                <div class="action-items-list">
+                    {% for item in meeting.action_items %}
+                    <div class="action-item {% if item.completed %}action-item-done{% endif %}">
+                        <input type="checkbox"
+                               {% if item.completed %}checked{% endif %}
+                               onchange="toggleActionItem('{{ item.id }}', this.checked)"
+                               style="margin-top:2px; flex-shrink:0; width:16px; height:16px; cursor:pointer; accent-color:var(--cyan);">
+                        <div class="action-item-body">
+                            <div class="action-item-text {% if item.completed %}action-item-text-done{% endif %}">
+                                {{ item.text }}
+                            </div>
+                            <div style="display:flex; gap:10px; margin-top:4px; font-size:11px; color:var(--text-muted);">
+                                {% if item.owner %}
+                                <span>👤 {{ item.owner }}</span>
+                                {% endif %}
+                                {% if item.due_date %}
+                                <span>📅 Due: {{ item.due_date[:10] }}</span>
+                                {% endif %}
+                                {% if item.priority %}
+                                <span class="badge badge-{{ item.priority | lower }}">{{ item.priority }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% elif meeting and meeting.status == 'complete' %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">✅</div>
+                    <div class="empty-state-title">No action items</div>
+                    <div class="empty-state-desc">No action items were extracted from this meeting.</div>
+                </div>
+                {% else %}
+                <div class="loading-overlay"><div class="loading-spinner"></div> Loading action items…</div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<style>
+.badge-type-internal   { background: #eff6ff; color: #2563eb; }
+.badge-type-strategist { background: #f0fdf4; color: #16a34a; }
+.badge-type-client     { background: #dbeafe; color: var(--tag-client); }
+.badge-type-earnings   { background: #fef9c3; color: #b45309; }
+
+.action-items-list { display: flex; flex-direction: column; gap: 12px; }
+
+.action-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--light-bg);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+
+.action-item-done {
+    opacity: 0.6;
+}
+
+.action-item-body { flex: 1; }
+
+.action-item-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.action-item-text-done {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// If meeting detail was not server-rendered, load it dynamically
+{% if not meeting %}
+document.addEventListener('DOMContentLoaded', async function () {
+    const meetingId = window.location.pathname.split('/').pop();
+    try {
+        const m = await argoFetch(`/api/v1/meetings/${meetingId}`);
+        renderMeetingHeader(m);
+        renderMeetingContent(m);
+    } catch (_) {
+        document.getElementById('header-loading').innerHTML =
+            '<p style="color:var(--text-muted); padding:20px;">Unable to load meeting.</p>';
+    }
+});
+
+function renderMeetingHeader(m) {
+    const tc       = (m.meeting_type || 'internal').toLowerCase();
+    const statusCls = { complete:'complete', pending:'pending', error:'error' }[m.status] || 'pending';
+    const date     = m.meeting_date ? m.meeting_date.slice(0, 10) : '—';
+    document.getElementById('meeting-header').innerHTML = `
+        <div class="card" style="margin-bottom:16px;">
+            <div class="card-body" style="padding:20px 24px;">
+                <h2 style="font-size:20px; font-weight:700; color:var(--navy); margin-bottom:8px;">${esc(m.title || 'Untitled Meeting')}</h2>
+                <div style="display:flex; gap:12px; flex-wrap:wrap; font-size:13px; color:var(--text-secondary);">
+                    <span class="badge badge-type-${tc}">${m.meeting_type || 'INTERNAL'}</span>
+                    <span class="badge badge-${statusCls}">${(m.status || 'PENDING').toUpperCase()}</span>
+                    <span>📅 ${date}</span>
+                    ${m.duration_minutes ? `<span>⏱ ${m.duration_minutes} min</span>` : ''}
+                    ${Array.isArray(m.attendees) ? `<span>👥 ${esc(m.attendees.join(', '))}</span>` : ''}
+                </div>
+            </div>
+        </div>`;
+}
+
+function renderMeetingContent(m) {
+    // Summary
+    document.getElementById('summary-content').innerHTML = m.summary
+        ? `<div style="font-size:14px; line-height:1.8; color:var(--text-secondary); white-space:pre-wrap;">${esc(m.summary)}</div>`
+        : `<div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-title">Summary not yet available</div></div>`;
+
+    // Transcript
+    document.getElementById('transcript-content').innerHTML = m.transcript
+        ? `<div style="font-size:13px; line-height:1.9; color:var(--text-secondary); white-space:pre-wrap; font-family:monospace; max-height:600px; overflow-y:auto; background:var(--light-bg); padding:16px; border-radius:6px;">${esc(m.transcript)}</div>`
+        : `<div class="empty-state"><div class="empty-state-icon">📝</div><div class="empty-state-title">Transcript not available</div></div>`;
+
+    // Action items
+    if (m.action_items && m.action_items.length) {
+        document.getElementById('action-items-content').innerHTML = `
+            <div class="action-items-list">
+                ${m.action_items.map(function (item) {
+                    return `
+                        <div class="action-item ${item.completed ? 'action-item-done' : ''}" id="action-${item.id}">
+                            <input type="checkbox" ${item.completed ? 'checked' : ''}
+                                   onchange="toggleActionItem('${item.id}', this.checked)"
+                                   style="margin-top:2px; flex-shrink:0; width:16px; height:16px; cursor:pointer; accent-color:var(--cyan);">
+                            <div class="action-item-body">
+                                <div class="action-item-text ${item.completed ? 'action-item-text-done' : ''}">${esc(item.text)}</div>
+                                <div style="display:flex; gap:10px; margin-top:4px; font-size:11px; color:var(--text-muted);">
+                                    ${item.owner ? `<span>👤 ${esc(item.owner)}</span>` : ''}
+                                    ${item.due_date ? `<span>📅 Due: ${item.due_date.slice(0,10)}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>`;
+                }).join('')}
+            </div>`;
+    } else {
+        document.getElementById('action-items-content').innerHTML =
+            `<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-title">No action items</div></div>`;
+    }
+}
+{% endif %}
+
+async function toggleActionItem(itemId, completed) {
+    try {
+        await argoFetch(`/api/v1/meetings/action-items/${itemId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ completed }),
+        });
+        const row = document.getElementById(`action-${itemId}`);
+        if (row) {
+            row.classList.toggle('action-item-done', completed);
+            const text = row.querySelector('.action-item-text');
+            if (text) text.classList.toggle('action-item-text-done', completed);
+        }
+    } catch (_) {}
+}
+
+function esc(t) {
+    if (!t) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

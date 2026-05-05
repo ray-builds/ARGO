@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}Economic Calendar{% endblock %}
+{% block page_title %}Economic Calendar{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-sm btn-ghost" onclick="loadCalendar()" id="refresh-btn">↻ Refresh</button>
+<div style="display:flex; align-items:center; gap:8px;">
+    <button class="btn btn-sm btn-ghost" onclick="shiftWeek(-1)" id="prev-btn">← Prev</button>
+    <button class="btn btn-sm btn-secondary" onclick="goToThisWeek()">This week</button>
+    <button class="btn btn-sm btn-ghost" onclick="shiftWeek(1)" id="next-btn">Next →</button>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ Week Header ════════════════════════════ -->
+<div class="card" style="margin-bottom:16px;">
+    <div class="card-body" style="padding:12px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <div>
+            <span id="week-label" style="font-size:15px; font-weight:600; color:var(--navy);">Loading week…</span>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <!-- Importance filter -->
+            <span style="font-size:12px; color:var(--text-muted);">Show:</span>
+            <label style="display:flex; align-items:center; gap:4px; font-size:12px; cursor:pointer;">
+                <input type="checkbox" id="show-high"   checked onchange="renderCalendar()">
+                <span class="badge badge-high" style="font-size:10px;">HIGH</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:4px; font-size:12px; cursor:pointer;">
+                <input type="checkbox" id="show-medium" checked onchange="renderCalendar()">
+                <span class="badge badge-medium" style="font-size:10px;">MEDIUM</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:4px; font-size:12px; cursor:pointer;">
+                <input type="checkbox" id="show-low" onchange="renderCalendar()">
+                <span class="badge badge-low" style="font-size:10px;">LOW</span>
+            </label>
+        </div>
+    </div>
+</div>
+
+<!-- ══ Calendar Grid ══════════════════════════ -->
+<div class="loading-overlay" id="cal-loading" style="background:white; border-radius:var(--radius); padding:40px;">
+    <div class="loading-spinner loading-spinner-lg"></div> Loading calendar…
+</div>
+
+<div id="calendar-grid" style="display:none;">
+    <!-- Days rendered by JS -->
+</div>
+
+<div class="empty-state" id="empty-state" style="display:none;">
+    <div class="empty-state-icon">📅</div>
+    <div class="empty-state-title">No events this week</div>
+    <div class="empty-state-desc">No economic releases matching your filter criteria.</div>
+</div>
+
+<style>
+.calendar-week {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+}
+
+.calendar-day {
+    background: white;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    min-height: 100px;
+}
+
+.calendar-day.today {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 2px rgba(10,143,183,0.2);
+}
+
+.calendar-day-header {
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.calendar-day.today .calendar-day-header {
+    background: var(--navy);
+    color: white;
+}
+
+.calendar-day-date {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.calendar-day.today .calendar-day-date { color: var(--cyan); }
+
+.calendar-day-body {
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.econ-event {
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1.4;
+    cursor: default;
+    transition: opacity 0.12s;
+}
+.econ-event:hover { opacity: 0.85; }
+
+.econ-event-high {
+    background: #fee2e2;
+    border-left: 3px solid #dc2626;
+    color: #991b1b;
+}
+.econ-event-medium {
+    background: #fef9c3;
+    border-left: 3px solid #d97706;
+    color: #92400e;
+}
+.econ-event-low {
+    background: #f3f4f6;
+    border-left: 3px solid #9ca3af;
+    color: #6b7280;
+}
+
+.econ-event-name { font-weight: 600; }
+.econ-event-meta { margin-top: 2px; display:flex; gap:6px; flex-wrap:wrap; }
+.econ-event-released { border-left-width: 4px; }
+
+@media (max-width: 900px) {
+    .calendar-week { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let weekEvents = [];
+let weekOffset = 0; // 0 = current week
+
+document.addEventListener('DOMContentLoaded', async function () {
+    await loadCalendar();
+});
+
+function getWeekDates(offset) {
+    const now = new Date();
+    const day = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + (offset * 7));
+    const dates = [];
+    for (let i = 0; i < 5; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        dates.push(d);
+    }
+    return dates;
+}
+
+async function loadCalendar() {
+    const btn = document.getElementById('refresh-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+
+    const dates   = getWeekDates(weekOffset);
+    const fromStr = dates[0].toISOString().slice(0, 10);
+    const toStr   = dates[4].toISOString().slice(0, 10);
+
+    const from_d = dates[0];
+    const to_d   = dates[4];
+    document.getElementById('week-label').textContent =
+        `Week of ${from_d.toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'})} — ${to_d.toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'})}`;
+
+    document.getElementById('cal-loading').style.display  = 'flex';
+    document.getElementById('calendar-grid').style.display = 'none';
+    document.getElementById('empty-state').style.display  = 'none';
+
+    try {
+        weekEvents = await argoFetch(`/api/v1/econ/calendar?from=${fromStr}&to=${toStr}`);
+        renderCalendar();
+    } catch (_) {
+        document.getElementById('cal-loading').innerHTML =
+            '<p style="color:var(--text-muted);">Unable to load calendar.</p>';
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh'; }
+    }
+}
+
+function renderCalendar() {
+    const showHigh   = document.getElementById('show-high').checked;
+    const showMedium = document.getElementById('show-medium').checked;
+    const showLow    = document.getElementById('show-low').checked;
+
+    const dates  = getWeekDates(weekOffset);
+    const today  = new Date().toISOString().slice(0, 10);
+    const grid   = document.getElementById('calendar-grid');
+
+    // Group events by date
+    const byDate = {};
+    weekEvents.forEach(function (ev) {
+        const d = (ev.event_date || ev.release_date || '').slice(0, 10);
+        if (!byDate[d]) byDate[d] = [];
+        const imp = (ev.importance || 'LOW').toUpperCase();
+        if (imp === 'HIGH'   && !showHigh)   return;
+        if (imp === 'MEDIUM' && !showMedium) return;
+        if (imp === 'LOW'    && !showLow)    return;
+        byDate[d].push(ev);
+    });
+
+    const hasAny = dates.some(function (d) { return (byDate[d.toISOString().slice(0,10)] || []).length > 0; });
+
+    document.getElementById('cal-loading').style.display  = 'none';
+
+    if (!hasAny) {
+        grid.style.display = 'none';
+        document.getElementById('empty-state').style.display = 'block';
+        return;
+    }
+    document.getElementById('empty-state').style.display = 'none';
+    grid.style.display = 'block';
+
+    grid.innerHTML = `<div class="calendar-week">
+        ${dates.map(function (d) {
+            const ds     = d.toISOString().slice(0, 10);
+            const isToday = ds === today;
+            const dayName = d.toLocaleDateString('en-GB', { weekday: 'short' });
+            const dayNum  = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            const events  = byDate[ds] || [];
+
+            return `
+                <div class="calendar-day ${isToday ? 'today' : ''}">
+                    <div class="calendar-day-header">
+                        <span>${dayName}</span>
+                        <span class="calendar-day-date">${dayNum}</span>
+                    </div>
+                    <div class="calendar-day-body">
+                        ${events.length === 0
+                            ? `<span style="font-size:11px; color:var(--text-muted); padding:4px 0;">No releases</span>`
+                            : events.map(function (ev) {
+                                const imp    = (ev.importance || 'LOW').toLowerCase();
+                                const isReleased = ev.actual !== null && ev.actual !== undefined;
+                                const country = ev.country || '';
+                                const countryFlag = getFlag(country);
+                                const beatMiss = ev.actual !== null && ev.forecast !== null
+                                    ? (parseFloat(ev.actual) > parseFloat(ev.forecast) ? ' ↑' : ' ↓')
+                                    : '';
+                                return `
+                                    <div class="econ-event econ-event-${imp} ${isReleased ? 'econ-event-released' : ''}">
+                                        <div class="econ-event-name">${countryFlag} ${esc(ev.event_name)}</div>
+                                        <div class="econ-event-meta">
+                                            ${ev.release_time ? `<span>${ev.release_time}</span>` : ''}
+                                            ${ev.forecast !== null && ev.forecast !== undefined ? `<span>F: ${ev.forecast}</span>` : ''}
+                                            ${isReleased ? `<span style="font-weight:700;">A: ${ev.actual}${beatMiss}</span>` : ''}
+                                        </div>
+                                    </div>`;
+                            }).join('')
+                        }
+                    </div>
+                </div>`;
+        }).join('')}
+    </div>`;
+}
+
+function shiftWeek(delta) {
+    weekOffset += delta;
+    loadCalendar();
+}
+
+function goToThisWeek() {
+    weekOffset = 0;
+    loadCalendar();
+}
+
+function getFlag(country) {
+    const flags = {
+        'US': '🇺🇸', 'USA': '🇺🇸', 'EU': '🇪🇺', 'EUR': '🇪🇺',
+        'UK': '🇬🇧', 'GB': '🇬🇧', 'DE': '🇩🇪', 'JP': '🇯🇵',
+        'CN': '🇨🇳', 'CA': '🇨🇦', 'AU': '🇦🇺', 'CH': '🇨🇭',
+    };
+    return flags[country.toUpperCase()] || '🌐';
+}
+
+function esc(t) {
+    if (!t) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

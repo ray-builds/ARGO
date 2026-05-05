@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}AI Assistant{% endblock %}
+{% block page_title %}AI Assistant{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-sm btn-primary" onclick="startNewConversation()">+ New Conversation</button>
+{% endblock %}
+
+{% block content %}
+
+<div class="chat-layout">
+
+    <!-- ══ Left Panel: Conversation List ══════════ -->
+    <div class="chat-sidebar">
+        <div style="margin-bottom:8px;">
+            <button class="btn btn-primary" style="width:100%;" onclick="startNewConversation()">
+                + New Conversation
+            </button>
+        </div>
+
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); padding:4px 2px; margin-bottom:4px;">
+            Recent
+        </div>
+
+        <div id="conversation-list">
+            <!-- Loading spinner -->
+            <div id="conv-list-loading" style="display:flex; justify-content:center; padding:16px;">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ Right Panel: Chat ═══════════════════════ -->
+    <div class="chat-main">
+
+        <!-- Chat Header -->
+        <div style="padding:14px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:white;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:32px; height:32px; border-radius:50%; background:var(--navy); display:flex; align-items:center; justify-content:center;">
+                    <span style="color:var(--cyan); font-size:16px;">🤖</span>
+                </div>
+                <div>
+                    <div style="font-size:14px; font-weight:600; color:var(--navy);">ARGO Assistant</div>
+                    <div style="font-size:11px; color:var(--text-muted);">Powered by Claude Sonnet · ARP Global Capital</div>
+                </div>
+            </div>
+            <div id="conv-id-display" style="font-size:11px; color:var(--text-muted);"></div>
+        </div>
+
+        <!-- Messages Container -->
+        <div class="chat-messages" id="chat-messages">
+
+            <!-- Suggested prompts (shown when no conversation is active) -->
+            <div id="suggested-prompts" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:20px; padding:24px;">
+                <div style="text-align:center;">
+                    <div style="font-size:32px; margin-bottom:8px;">🤖</div>
+                    <h3 style="font-size:16px; font-weight:600; color:var(--navy); margin-bottom:6px;">ARGO AI Assistant</h3>
+                    <p style="font-size:13px; color:var(--text-secondary); max-width:380px; line-height:1.6;">
+                        Ask me anything about your portfolio, research, emails, clients, or market data.
+                    </p>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-width:520px; width:100%;">
+                    {% set suggestions = [
+                        ('📧', 'What urgent emails need my attention today?', 'email'),
+                        ('📈', 'Summarise our current portfolio positioning', 'portfolio'),
+                        ('🌙', "What happened in markets overnight?", 'overnight'),
+                        ('🔬', 'What is our latest view on UST duration?', 'research'),
+                        ('👥', 'Which clients need follow-up this week?', 'clients'),
+                        ('📅', 'What are the key macro events this week?', 'econ'),
+                    ] %}
+                    {% for icon, text, _ in suggestions %}
+                    <button onclick="useSuggestedPrompt('{{ text }}')"
+                            style="background:white; border:1px solid var(--border); border-radius:8px; padding:12px 14px; text-align:left; cursor:pointer; font-size:12px; color:var(--text-secondary); line-height:1.4; transition:all 0.15s;"
+                            onmouseover="this.style.borderColor='var(--cyan)'; this.style.background='rgba(10,143,183,0.04)';"
+                            onmouseout="this.style.borderColor='var(--border)'; this.style.background='white';">
+                        <span style="font-size:16px; display:block; margin-bottom:4px;">{{ icon }}</span>
+                        {{ text }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Input Area -->
+        <form id="chat-form" class="chat-input-area">
+            <textarea id="chat-input"
+                      class="form-control"
+                      placeholder="Ask ARGO anything… (Enter to send, Shift+Enter for newline)"
+                      rows="1"
+                      style="resize:none; min-height:40px; max-height:120px; overflow-y:auto;"></textarea>
+            <button type="submit" id="chat-submit-btn" class="btn btn-primary"
+                    style="flex-shrink:0; padding:8px 16px;">
+                Send →
+            </button>
+        </form>
+
+    </div><!-- /.chat-main -->
+
+</div><!-- /.chat-layout -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/chat.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+    await loadConversationList();
+});
+
+async function loadConversationList() {
+    const loading = document.getElementById('conv-list-loading');
+    try {
+        const convs = await argoFetch('/api/v1/assistant/conversations?limit=30');
+        const list  = document.getElementById('conversation-list');
+        loading.style.display = 'none';
+
+        if (!convs.length) {
+            list.innerHTML = '<p style="font-size:12px; color:var(--text-muted); text-align:center; padding:8px;">No conversations yet</p>';
+            return;
+        }
+
+        list.innerHTML = convs.map(function (c) {
+            const preview = (c.title || c.first_message || 'Conversation').slice(0, 55);
+            const date    = formatRelativeTime(c.created_at);
+            return `
+                <div class="conversation-item" data-conversation-id="${c.id}"
+                     onclick="loadConversation('${c.id}')"
+                     title="${esc(preview)}">
+                    <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(preview)}</div>
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${date}</div>
+                </div>`;
+        }).join('');
+    } catch (_) {
+        if (loading) loading.innerHTML = '';
+    }
+}
+
+function esc(t) {
+    if (!t) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

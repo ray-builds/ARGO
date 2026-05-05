@@ -1,0 +1,135 @@
+{#
+  CEO Email Card Grid — partial/include template
+  Usage:  {% include "email/ceo_boxes.html" %}
+  Expected context variables:
+    emails  — list of email dicts from the API
+    show_filter_bar — boolean (default True)
+#}
+
+{% set show_filter = show_filter_bar if show_filter_bar is defined else true %}
+
+{% if show_filter %}
+<!-- ══ Tag Filter Bar ═══════════════════════ -->
+<div class="tag-filter-bar" id="ceo-tag-filter-bar">
+    <button class="tag-filter-btn active" data-tag="ALL"
+            onclick="filterByTag('ALL')">All</button>
+    <button class="tag-filter-btn" data-tag="URGENT"
+            onclick="filterByTag('URGENT')"     style="border-color:var(--tag-urgent);">Urgent</button>
+    <button class="tag-filter-btn" data-tag="CLIENT"
+            onclick="filterByTag('CLIENT')"     style="border-color:var(--tag-client);">Client</button>
+    <button class="tag-filter-btn" data-tag="TRADE"
+            onclick="filterByTag('TRADE')"      style="border-color:var(--tag-trade);">Trade</button>
+    <button class="tag-filter-btn" data-tag="RESEARCH"
+            onclick="filterByTag('RESEARCH')"   style="border-color:var(--tag-research);">Research</button>
+    <button class="tag-filter-btn" data-tag="OPERATIONS"
+            onclick="filterByTag('OPERATIONS')" style="border-color:var(--tag-operations);">Operations</button>
+    <button class="tag-filter-btn" data-tag="HR"
+            onclick="filterByTag('HR')"         style="border-color:var(--tag-hr);">HR</button>
+    <button class="tag-filter-btn" data-tag="REGULATORY"
+            onclick="filterByTag('REGULATORY')" style="border-color:var(--tag-regulatory);">Regulatory</button>
+    <button class="tag-filter-btn" data-tag="SKIP"
+            onclick="filterByTag('SKIP')"       style="border-color:var(--tag-skip);">Skip</button>
+</div>
+{% endif %}
+
+<!-- ══ Bulk Actions Bar ═════════════════════ -->
+<div class="inbox-bulk-actions">
+    <span class="inbox-count">
+        {{ emails | length if emails else 0 }} email(s)
+    </span>
+    <button class="btn btn-sm btn-danger" onclick="archiveAllSkip()">
+        Archive all SKIP
+    </button>
+</div>
+
+<!-- ══ Email Cards ══════════════════════════ -->
+<div class="ceo-inbox-panel" id="ceo-email-cards">
+
+{% if emails %}
+    {% for email in emails %}
+    {% set tag = email.tag or 'SKIP' %}
+    {% set tag_lower = tag | lower %}
+    {% set highlight = email.highlights[0] if email.highlights else none %}
+    {% set score = email.relevance_score or 0 %}
+
+    <div class="email-card email-card-{{ tag_lower }} {% if not email.is_read %}email-card-unread{% endif %}"
+         data-tag="{{ tag }}"
+         data-email-id="{{ email.id }}"
+         id="email-card-{{ email.id }}">
+
+        <!-- Header row: tag badge + time -->
+        <div class="email-card-header">
+            <div class="email-card-meta">
+                <span class="badge tag-badge-{{ tag_lower }}">{{ tag }}</span>
+                <span class="email-card-sender">{{ email.sender_name or email.sender_email or '' }}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                {% if score >= 90 %}
+                    <span class="score-badge score-badge-critical">{{ score }}</span>
+                {% elif score >= 70 %}
+                    <span class="score-badge score-badge-high">{{ score }}</span>
+                {% elif score >= 40 %}
+                    <span class="score-badge score-badge-medium">{{ score }}</span>
+                {% else %}
+                    <span class="score-badge score-badge-low">{{ score }}</span>
+                {% endif %}
+                <span class="email-card-time" data-iso="{{ email.received_at }}">
+                    {{ email.received_at }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Subject -->
+        <div class="email-card-subject">
+            {{ email.subject or '(no subject)' }}
+        </div>
+
+        <!-- AI highlight -->
+        {% if highlight %}
+        <div class="email-card-highlight">
+            {{ highlight.highlight_text or '' }}
+        </div>
+        {% endif %}
+
+        <!-- Action required -->
+        {% if highlight and highlight.action_required %}
+        <div class="email-card-action">
+            {{ highlight.action_required }}
+        </div>
+        {% endif %}
+
+        <!-- Footer: actions + relative time -->
+        <div class="email-card-footer">
+            <div class="email-card-actions">
+                <a href="/email/{{ email.id }}" class="btn btn-sm btn-secondary">View</a>
+                <button class="btn btn-sm btn-ghost"
+                        onclick="archiveEmail('{{ email.id }}')">Archive</button>
+            </div>
+            <span class="email-card-time">
+                {% if email.received_at %}{{ email.received_at[:10] }}{% endif %}
+            </span>
+        </div>
+
+    </div><!-- /.email-card -->
+    {% endfor %}
+
+{% else %}
+    <div class="inbox-empty">
+        <span class="inbox-empty-icon">📭</span>
+        No emails to display
+    </div>
+{% endif %}
+
+</div><!-- /.ceo-inbox-panel -->
+
+<script>
+// Upgrade static timestamps to relative once DOM is ready
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.email-card-time[data-iso]').forEach(function (el) {
+        const iso = el.dataset.iso;
+        if (iso && typeof formatRelativeTime === 'function') {
+            el.textContent = formatRelativeTime(iso);
+        }
+    });
+});
+</script>

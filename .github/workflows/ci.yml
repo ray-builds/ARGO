@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run linting (ruff)
+        run: ruff check .
+
+      - name: Run formatting check (black)
+        run: black --check .
+
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=80
+        env:
+          APP_ENV: test
+          DATABASE_URL: sqlite+aiosqlite:///./test.db
+          SECRET_KEY: test-secret-key-not-for-production
+          ANTHROPIC_API_KEY: test-key
+          AZURE_TENANT_ID: test-tenant
+          AZURE_CLIENT_ID: test-client
+          AZURE_CLIENT_SECRET: test-secret
+          AZURE_REDIRECT_URI: http://localhost:8000/auth/callback
+          CEO_EMAIL: test@example.com
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false

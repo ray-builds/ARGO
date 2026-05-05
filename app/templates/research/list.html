@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}Research{% endblock %}
+{% block page_title %}Research Intelligence{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-sm btn-ghost" onclick="requestWeeklyDigest()" id="digest-btn">
+    📋 Weekly Digest
+</button>
+<button class="btn btn-sm btn-primary" onclick="openModal('upload-research-modal')">
+    + Add Research
+</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ Filters ════════════════════════════════ -->
+<div class="card" style="margin-bottom:16px;">
+    <div class="card-body" style="padding:12px 16px;">
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+            <div class="search-bar" style="flex:1; min-width:220px;">
+                <span style="color:var(--text-muted);">🔍</span>
+                <input type="text" id="search-input" placeholder="Search research items…"
+                       oninput="debounce(applyFilters, 300)()">
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; color:var(--text-muted);">Supplier:</label>
+                <select class="form-control" id="supplier-filter" onchange="applyFilters()"
+                        style="width:160px; padding:6px 10px;">
+                    <option value="">All suppliers</option>
+                </select>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; color:var(--text-muted);">Asset Class:</label>
+                <select class="form-control" id="asset-filter" onchange="applyFilters()"
+                        style="width:140px; padding:6px 10px;">
+                    <option value="">All</option>
+                    <option value="Rates">Rates</option>
+                    <option value="FX">FX</option>
+                    <option value="Equities">Equities</option>
+                    <option value="Credit">Credit</option>
+                    <option value="Commodities">Commodities</option>
+                    <option value="Macro">Macro</option>
+                    <option value="EM">EM</option>
+                </select>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; color:var(--text-muted);">Conviction:</label>
+                <select class="form-control" id="conviction-filter" onchange="applyFilters()"
+                        style="width:110px; padding:6px 10px;">
+                    <option value="">All</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                </select>
+            </div>
+            <button class="btn btn-sm btn-ghost" onclick="resetFilters()">Reset</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ Research Table ═════════════════════════ -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Research Items</h2>
+        <span id="row-count" style="font-size:12px; color:var(--text-muted);">Loading…</span>
+    </div>
+
+    <div class="loading-overlay" id="table-loading">
+        <div class="loading-spinner"></div> Loading research…
+    </div>
+
+    <div class="table-wrapper" id="table-wrapper" style="display:none;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th style="width:160px;">Supplier</th>
+                    <th style="width:120px;">Asset Class</th>
+                    <th style="width:90px;">Conviction</th>
+                    <th style="width:80px;">Rating</th>
+                    <th style="width:110px;">Date</th>
+                    <th style="width:80px;"></th>
+                </tr>
+            </thead>
+            <tbody id="research-tbody"></tbody>
+        </table>
+    </div>
+
+    <div class="empty-state" id="empty-state" style="display:none;">
+        <div class="empty-state-icon">🔬</div>
+        <div class="empty-state-title">No research items</div>
+        <div class="empty-state-desc">Add research using the button above.</div>
+    </div>
+</div>
+
+<!-- ══ Add Research Modal ════════════════════ -->
+<div class="modal" id="upload-research-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-card">
+        <div class="modal-header">
+            <span class="modal-title">+ Add Research Item</span>
+            <button class="modal-close" onclick="closeModal('upload-research-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Title *</label>
+                <input type="text" class="form-control" id="res-title" placeholder="e.g. Goldman Rates Outlook Q3 2026">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                <div class="form-group">
+                    <label>Supplier / Author</label>
+                    <input type="text" class="form-control" id="res-supplier" placeholder="e.g. Goldman Sachs">
+                </div>
+                <div class="form-group">
+                    <label>Asset Class</label>
+                    <select class="form-control" id="res-asset">
+                        <option value="">Select</option>
+                        <option value="Rates">Rates</option>
+                        <option value="FX">FX</option>
+                        <option value="Equities">Equities</option>
+                        <option value="Credit">Credit</option>
+                        <option value="Commodities">Commodities</option>
+                        <option value="Macro">Macro</option>
+                        <option value="EM">EM</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Conviction</label>
+                    <select class="form-control" id="res-conviction">
+                        <option value="MEDIUM">Medium</option>
+                        <option value="HIGH">High</option>
+                        <option value="LOW">Low</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Star Rating (1–5)</label>
+                    <input type="number" class="form-control" id="res-rating" min="1" max="5" value="3">
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" class="form-control" id="res-date">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Key Thesis / Notes</label>
+                <textarea class="form-control" id="res-notes" rows="4"
+                          placeholder="Summarise the main thesis or key findings…"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('upload-research-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitResearch()">Save</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allResearch = [];
+
+document.addEventListener('DOMContentLoaded', async function () {
+    const d = document.getElementById('res-date');
+    if (d) d.value = new Date().toISOString().slice(0, 10);
+    await loadResearch();
+});
+
+async function loadResearch() {
+    try {
+        allResearch = await argoFetch('/api/v1/research/?limit=200');
+        document.getElementById('table-loading').style.display = 'none';
+        populateSupplierFilter(allResearch);
+        renderTable(allResearch);
+    } catch (_) {
+        document.getElementById('table-loading').innerHTML =
+            '<p style="color:var(--text-muted); padding:20px; text-align:center;">Unable to load research.</p>';
+    }
+}
+
+function populateSupplierFilter(items) {
+    const suppliers = [...new Set(items.map(function (i) { return i.supplier; }).filter(Boolean))].sort();
+    const sel = document.getElementById('supplier-filter');
+    suppliers.forEach(function (s) {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s;
+        sel.appendChild(opt);
+    });
+}
+
+function renderTable(items) {
+    document.getElementById('row-count').textContent = `${items.length} item(s)`;
+    if (!items.length) {
+        document.getElementById('table-wrapper').style.display = 'none';
+        document.getElementById('empty-state').style.display = 'block';
+        return;
+    }
+    document.getElementById('empty-state').style.display   = 'none';
+    document.getElementById('table-wrapper').style.display = 'block';
+
+    document.getElementById('research-tbody').innerHTML = items.map(function (r) {
+        const convCls = (r.conviction || 'MEDIUM').toLowerCase();
+        const rating  = r.star_rating || r.rating || 0;
+        const stars   = '★'.repeat(rating) + '☆'.repeat(Math.max(0, 5 - rating));
+        const date    = r.published_date || r.created_at || '';
+        const dateStr = date ? new Date(date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '—';
+        return `
+            <tr style="cursor:pointer;" onclick="window.location='/research/${r.id}'">
+                <td>
+                    <div style="font-weight:600; font-size:13px;">${esc(r.title || '—')}</div>
+                    ${r.key_thesis ? `<div style="font-size:11px; color:var(--text-muted); margin-top:2px; max-width:400px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(r.key_thesis.slice(0, 100))}</div>` : ''}
+                </td>
+                <td style="font-size:12px; color:var(--text-secondary);">${esc(r.supplier || '—')}</td>
+                <td><span class="badge" style="background:var(--light-bg); color:var(--text-secondary);">${esc(r.asset_class || '—')}</span></td>
+                <td><span class="badge badge-conviction-${convCls}">${r.conviction || 'MEDIUM'}</span></td>
+                <td><span class="star-rating" style="font-size:13px;">${stars}</span></td>
+                <td style="font-size:12px; color:var(--text-muted); white-space:nowrap;">${dateStr}</td>
+                <td onclick="event.stopPropagation();">
+                    <a href="/research/${r.id}" class="btn btn-sm btn-secondary">View</a>
+                </td>
+            </tr>`;
+    }).join('');
+}
+
+function applyFilters() {
+    const q          = (document.getElementById('search-input').value || '').toLowerCase();
+    const supplier   = document.getElementById('supplier-filter').value;
+    const assetClass = document.getElementById('asset-filter').value;
+    const conviction = document.getElementById('conviction-filter').value;
+
+    const filtered = allResearch.filter(function (r) {
+        if (supplier   && r.supplier   !== supplier)   return false;
+        if (assetClass && r.asset_class !== assetClass) return false;
+        if (conviction && r.conviction  !== conviction) return false;
+        if (q) {
+            const hay = [r.title, r.supplier, r.key_thesis, r.asset_class].join(' ').toLowerCase();
+            if (!hay.includes(q)) return false;
+        }
+        return true;
+    });
+    renderTable(filtered);
+}
+
+function resetFilters() {
+    document.getElementById('search-input').value     = '';
+    document.getElementById('supplier-filter').value  = '';
+    document.getElementById('asset-filter').value     = '';
+    document.getElementById('conviction-filter').value = '';
+    renderTable(allResearch);
+}
+
+async function submitResearch() {
+    const title      = document.getElementById('res-title').value.trim();
+    const supplier   = document.getElementById('res-supplier').value.trim();
+    const assetClass = document.getElementById('res-asset').value;
+    const conviction = document.getElementById('res-conviction').value;
+    const rating     = parseInt(document.getElementById('res-rating').value) || 3;
+    const date       = document.getElementById('res-date').value;
+    const notes      = document.getElementById('res-notes').value.trim();
+
+    if (!title) { showToast('Please enter a title', 'warning'); return; }
+
+    try {
+        const item = await argoFetch('/api/v1/research/', {
+            method: 'POST',
+            body: JSON.stringify({ title, supplier, asset_class: assetClass, conviction, star_rating: rating, published_date: date, key_thesis: notes }),
+        });
+        closeModal('upload-research-modal');
+        showToast('Research item added', 'success');
+        allResearch.unshift(item);
+        renderTable(allResearch);
+    } catch (_) {}
+}
+
+async function requestWeeklyDigest() {
+    const btn = document.getElementById('digest-btn');
+    btn.disabled = true; btn.textContent = 'Generating…';
+    try {
+        const result = await argoFetch('/api/v1/research/weekly-digest', { method: 'POST' });
+        showToast('Weekly digest generated', 'success');
+        if (result.id) window.location = `/research/digest/${result.id}`;
+    } catch (_) {
+    } finally {
+        btn.disabled = false; btn.textContent = '📋 Weekly Digest';
+    }
+}
+
+function esc(t) {
+    if (!t) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

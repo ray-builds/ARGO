@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% block title %}{{ client.display_name if client else 'Client' }}{% endblock %}
+{% block page_title %}Client Profile{% endblock %}
+
+{% block topbar_actions %}
+<a href="/clients" class="btn btn-sm btn-ghost">← Back to Clients</a>
+<button class="btn btn-sm btn-primary" onclick="openModal('log-interaction-modal')">
+    + Log Interaction
+</button>
+<button class="btn btn-sm btn-secondary" onclick="getFollowUpSuggestion()" id="followup-btn">
+    🤖 AI Follow-up
+</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ Client Profile Card ═══════════════════ -->
+<div class="card" style="margin-bottom:16px;" id="profile-card">
+{% if client %}
+    <div class="card-body" style="padding:24px;">
+        <div style="display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap;">
+            <!-- Avatar circle -->
+            <div style="width:64px; height:64px; border-radius:50%; background:var(--blue); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span style="font-size:24px; font-weight:700; color:white;">
+                    {{ (client.first_name or '?')[0] | upper }}{{ (client.last_name or '')[0] | upper }}
+                </span>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px; flex-wrap:wrap;">
+                    <h2 style="font-size:20px; font-weight:700; color:var(--navy);">
+                        {{ client.display_name or ([client.first_name, client.last_name] | join(' ')) }}
+                    </h2>
+                    <span class="badge badge-tier-{{ client.tier or 2 }}">Tier {{ client.tier or 2 }}</span>
+                    {% if client.is_active == false %}
+                    <span class="badge" style="background:#fee2e2; color:#dc2626;">Inactive</span>
+                    {% endif %}
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:16px; font-size:13px; color:var(--text-secondary);">
+                    {% if client.firm %}
+                    <span>🏢 {{ client.firm }}</span>
+                    {% endif %}
+                    {% if client.email %}
+                    <span>📧 <a href="mailto:{{ client.email }}" style="color:var(--mid-blue);">{{ client.email }}</a></span>
+                    {% endif %}
+                    {% if client.phone %}
+                    <span>📞 {{ client.phone }}</span>
+                    {% endif %}
+                    {% if client.country %}
+                    <span>🌍 {{ client.country }}</span>
+                    {% endif %}
+                    {% if client.last_contact_date %}
+                    <span>🕐 Last contact: {{ client.last_contact_date[:10] }}</span>
+                    {% endif %}
+                </div>
+                {% if client.notes %}
+                <p style="font-size:13px; color:var(--text-secondary); margin-top:10px; line-height:1.5;">
+                    {{ client.notes }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% else %}
+    <div class="card-body loading-overlay" id="profile-loading">
+        <div class="loading-spinner"></div> Loading client profile…
+    </div>
+{% endif %}
+</div>
+
+<!-- ══ AI Follow-up Suggestion ═══════════════ -->
+<div id="followup-suggestion" style="display:none; margin-bottom:16px;">
+    <div class="alert alert-info">
+        <strong>AI Follow-up Suggestion:</strong>
+        <span id="followup-text"></span>
+    </div>
+</div>
+
+<!-- ══ Interaction Timeline ══════════════════ -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Interaction History</h2>
+        <span id="interaction-count" style="font-size:12px; color:var(--text-muted);">Loading…</span>
+    </div>
+    <div class="card-body" id="timeline-container">
+        <div class="loading-overlay"><div class="loading-spinner"></div> Loading interactions…</div>
+    </div>
+</div>
+
+<!-- ══ Log Interaction Modal ═════════════════ -->
+<div class="modal" id="log-interaction-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-card">
+        <div class="modal-header">
+            <span class="modal-title">+ Log Interaction</span>
+            <button class="modal-close" onclick="closeModal('log-interaction-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                <div class="form-group">
+                    <label>Date *</label>
+                    <input type="date" class="form-control" id="int-date">
+                </div>
+                <div class="form-group">
+                    <label>Type *</label>
+                    <select class="form-control" id="int-type">
+                        <option value="call">Call</option>
+                        <option value="meeting">Meeting</option>
+                        <option value="email">Email</option>
+                        <option value="lunch">Lunch / Dinner</option>
+                        <option value="conference">Conference</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Summary *</label>
+                <textarea class="form-control" id="int-summary" rows="4"
+                          placeholder="What was discussed? Any key outcomes?"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Follow-up actions</label>
+                <textarea class="form-control" id="int-actions" rows="2"
+                          placeholder="e.g. Send Q3 portfolio report by Friday"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Next follow-up date</label>
+                <input type="date" class="form-control" id="int-next-date">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('log-interaction-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitInteraction()">Log Interaction</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const clientId = window.location.pathname.split('/').pop();
+let clientData = null;
+
+document.addEventListener('DOMContentLoaded', async function () {
+    const d = document.getElementById('int-date');
+    if (d) d.value = new Date().toISOString().slice(0, 10);
+
+    {% if not client %}
+    await loadClient();
+    {% endif %}
+
+    await loadInteractions();
+});
+
+{% if not client %}
+async function loadClient() {
+    try {
+        clientData = await argoFetch(`/api/v1/clients/${clientId}`);
+        renderProfile(clientData);
+    } catch (_) {
+        document.getElementById('profile-loading').innerHTML =
+            '<p style="color:var(--text-muted); padding:20px;">Unable to load client.</p>';
+    }
+}
+
+function renderProfile(c) {
+    const initials = ((c.first_name || '?')[0] + (c.last_name || '')[0]).toUpperCase();
+    document.getElementById('profile-card').innerHTML = `
+        <div class="card-body" style="padding:24px;">
+            <div style="display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap;">
+                <div style="width:64px; height:64px; border-radius:50%; background:var(--blue); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <span style="font-size:24px; font-weight:700; color:white;">${initials}</span>
+                </div>
+                <div style="flex:1;">
+                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px; flex-wrap:wrap;">
+                        <h2 style="font-size:20px; font-weight:700; color:var(--navy);">${esc(c.display_name || [c.first_name, c.last_name].filter(Boolean).join(' '))}</h2>
+                        <span class="badge badge-tier-${c.tier || 2}">Tier ${c.tier || 2}</span>
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:16px; font-size:13px; color:var(--text-secondary);">
+                        ${c.firm    ? `<span>🏢 ${esc(c.firm)}</span>` : ''}
+                        ${c.email   ? `<span>📧 <a href="mailto:${esc(c.email)}" style="color:var(--mid-blue);">${esc(c.email)}</a></span>` : ''}
+                        ${c.phone   ? `<span>📞 ${esc(c.phone)}</span>` : ''}
+                        ${c.country ? `<span>🌍 ${esc(c.country)}</span>` : ''}
+                        ${c.last_contact_date ? `<span>🕐 Last contact: ${c.last_contact_date.slice(0,10)}</span>` : ''}
+                    </div>
+                    ${c.notes ? `<p style="font-size:13px; color:var(--text-secondary); margin-top:10px; line-height:1.5;">${esc(c.notes)}</p>` : ''}
+                </div>
+            </div>
+        </div>`;
+}
+{% endif %}
+
+async function loadInteractions() {
+    try {
+        const interactions = await argoFetch(`/api/v1/clients/${clientId}/interactions`);
+        renderTimeline(interactions);
+        document.getElementById('interaction-count').textContent = `${interactions.length} interaction(s)`;
+    } catch (_) {
+        document.getElementById('timeline-container').innerHTML =
+            '<p style="text-align:center; color:var(--text-muted); padding:20px; font-size:13px;">No interactions recorded yet.</p>';
+        document.getElementById('interaction-count').textContent = '0 interactions';
+    }
+}
+
+function renderTimeline(interactions) {
+    const container = document.getElementById('timeline-container');
+    if (!interactions.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🕐</div>
+                <div class="empty-state-title">No interactions yet</div>
+                <div class="empty-state-desc">Use "Log Interaction" to record a call, meeting, or email.</div>
+            </div>`;
+        return;
+    }
+    container.innerHTML = `
+        <div class="timeline">
+            ${interactions.map(function (i) {
+                const date = new Date(i.interaction_date || i.created_at).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+                const typeIcon = { call:'📞', meeting:'🤝', email:'📧', lunch:'🍽️', conference:'🎤' }[i.interaction_type] || '📌';
+                return `
+                    <div class="timeline-item">
+                        <div class="timeline-date">${date} &nbsp;·&nbsp; ${typeIcon} ${(i.interaction_type || 'other').charAt(0).toUpperCase() + (i.interaction_type || 'other').slice(1)}</div>
+                        <div class="timeline-content">
+                            <p style="font-size:13px; line-height:1.6; color:var(--text-primary);">${esc(i.summary || '')}</p>
+                            ${i.follow_up_actions ? `<p style="font-size:12px; color:var(--tag-trade); margin-top:6px; font-weight:500;">→ ${esc(i.follow_up_actions)}</p>` : ''}
+                            ${i.next_follow_up_date ? `<p style="font-size:11px; color:var(--text-muted); margin-top:4px;">Next follow-up: ${i.next_follow_up_date.slice(0,10)}</p>` : ''}
+                        </div>
+                    </div>`;
+            }).join('')}
+        </div>`;
+}
+
+async function submitInteraction() {
+    const date    = document.getElementById('int-date').value;
+    const type    = document.getElementById('int-type').value;
+    const summary = document.getElementById('int-summary').value.trim();
+    const actions = document.getElementById('int-actions').value.trim();
+    const nextDate = document.getElementById('int-next-date').value;
+
+    if (!summary) { showToast('Please enter a summary', 'warning'); return; }
+
+    try {
+        await argoFetch(`/api/v1/clients/${clientId}/interactions`, {
+            method: 'POST',
+            body: JSON.stringify({ interaction_date: date, interaction_type: type, summary, follow_up_actions: actions, next_follow_up_date: nextDate || null }),
+        });
+        closeModal('log-interaction-modal');
+        showToast('Interaction logged', 'success');
+        await loadInteractions();
+    } catch (_) {}
+}
+
+async function getFollowUpSuggestion() {
+    const btn = document.getElementById('followup-btn');
+    btn.disabled = true; btn.textContent = '🤖 Thinking…';
+    try {
+        const result = await argoFetch(`/api/v1/clients/${clientId}/follow-up-suggestion`, { method: 'POST' });
+        document.getElementById('followup-text').textContent = result.suggestion || result.content || '';
+        document.getElementById('followup-suggestion').style.display = 'block';
+    } catch (_) {
+    } finally {
+        btn.disabled = false; btn.textContent = '🤖 AI Follow-up';
+    }
+}
+
+function esc(t) {
+    if (!t) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

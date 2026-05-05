@@ -1,0 +1,259 @@
+/* ═══════════════════════════════════════════
+   CEO Email Box Cards
+   ARGO — AI Operations Platform
+   ═══════════════════════════════════════════ */
+
+/* ─── Panel Container ────────────────────── */
+.ceo-inbox-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ─── Email Card Base ─────────────────────── */
+.email-card {
+  background: white;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.15s, transform 0.1s;
+  position: relative;
+}
+
+.email-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.email-card:last-child {
+  margin-bottom: 0;
+}
+
+/* ─── Tag Variants ────────────────────────── */
+.email-card-urgent    { border-left: 4px solid var(--tag-urgent); }
+.email-card-client    { border-left: 4px solid var(--tag-client); }
+.email-card-trade     { border-left: 4px solid var(--tag-trade); }
+.email-card-research  { border-left: 4px solid var(--tag-research); }
+.email-card-operations { border-left: 4px solid var(--tag-operations); }
+.email-card-hr        { border-left: 4px solid var(--tag-hr); }
+.email-card-regulatory { border-left: 4px solid var(--tag-regulatory); }
+.email-card-skip      {
+  border-left: 4px solid var(--tag-skip);
+  opacity: 0.6;
+}
+
+.email-card-skip:hover {
+  opacity: 0.85;
+}
+
+/* ─── Card Header Row ─────────────────────── */
+.email-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+
+.email-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ─── Sender ──────────────────────────────── */
+.email-card-sender {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+/* ─── Subject ─────────────────────────────── */
+.email-card-subject {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin: 4px 0;
+  line-height: 1.4;
+}
+
+.email-card:hover .email-card-subject {
+  color: var(--navy);
+}
+
+/* ─── AI Highlight Excerpt ───────────────── */
+.email-card-highlight {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-top: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── Action Required Banner ─────────────── */
+.email-card-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fef9c3;
+  border: 1px solid #fde68a;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #92400e;
+  margin-top: 8px;
+}
+
+.email-card-action::before {
+  content: '⚡';
+  flex-shrink: 0;
+}
+
+/* ─── Timestamp ───────────────────────────── */
+.email-card-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+/* ─── Card Footer ─────────────────────────── */
+.email-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.email-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ─── Unread indicator ─────────────────────── */
+.email-card-unread::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cyan);
+}
+
+/* ─── Score pill on card ──────────────────── */
+.email-card-score {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+/* ─── Tag Filter Bar ──────────────────────── */
+.tag-filter-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  flex-wrap: nowrap;
+}
+
+.tag-filter-bar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.tag-filter-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tag-filter-bar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* ─── Tag Filter Buttons ──────────────────── */
+.tag-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  border: 1.5px solid var(--border);
+  background: white;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tag-filter-btn:hover {
+  background: var(--light-bg);
+  color: var(--text-primary);
+}
+
+.tag-filter-btn.active {
+  background: var(--navy);
+  color: white;
+  border-color: var(--navy);
+}
+
+/* Colored active states for specific tags */
+.tag-filter-btn[data-tag="URGENT"].active  { background: var(--tag-urgent); border-color: var(--tag-urgent); }
+.tag-filter-btn[data-tag="CLIENT"].active  { background: var(--tag-client); border-color: var(--tag-client); }
+.tag-filter-btn[data-tag="TRADE"].active   { background: var(--tag-trade); border-color: var(--tag-trade); }
+.tag-filter-btn[data-tag="RESEARCH"].active { background: var(--tag-research); border-color: var(--tag-research); }
+.tag-filter-btn[data-tag="OPERATIONS"].active { background: var(--tag-operations); border-color: var(--tag-operations); }
+.tag-filter-btn[data-tag="HR"].active      { background: var(--tag-hr); border-color: var(--tag-hr); }
+.tag-filter-btn[data-tag="REGULATORY"].active { background: var(--tag-regulatory); border-color: var(--tag-regulatory); }
+.tag-filter-btn[data-tag="SKIP"].active    { background: var(--tag-skip); border-color: var(--tag-skip); }
+
+/* ─── Bulk Actions Bar ───────────────────── */
+.inbox-bulk-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  margin-bottom: 8px;
+}
+
+.inbox-count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ─── Empty inbox ────────────────────────── */
+.inbox-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.inbox-empty-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+  display: block;
+}

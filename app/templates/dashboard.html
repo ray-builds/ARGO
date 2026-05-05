@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+
+    <!-- ══ Stats Strip ═══════════════════════════ -->
+    <div class="stats-strip card">
+        <div class="stat-item">
+            <div class="stat-label">Today</div>
+            <div class="stat-value" id="today-date" style="font-size:15px;">—</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+            <div class="stat-label">📧 Unread Emails</div>
+            <div class="stat-value" id="unread-count">—</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+            <div class="stat-label">⚠️ Urgent</div>
+            <div class="stat-value urgent" id="urgent-count">—</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+            <div class="stat-label">📅 Econ Events Today</div>
+            <div class="stat-value" id="econ-count">—</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+            <div class="stat-label">🎤 Meetings (30d)</div>
+            <div class="stat-value" id="meetings-count">—</div>
+        </div>
+    </div>
+
+    <!-- ══ Two-Column Grid ═══════════════════════ -->
+    <div class="dashboard-cols">
+
+        <!-- LEFT: CEO Email Panel -->
+        <div class="dashboard-col-left">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">📧 CEO Email Inbox</h2>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-sm btn-ghost" id="fetch-emails-btn"
+                                onclick="fetchEmails('{{ user.email if user else '' }}')">
+                            Refresh
+                        </button>
+                        <a href="/email" class="btn btn-sm btn-secondary">View all →</a>
+                    </div>
+                </div>
+                <div class="card-body" style="padding: 12px 14px;">
+
+                    <!-- Tag filters -->
+                    <div class="tag-filter-bar" id="ceo-tag-filter">
+                        <button class="tag-filter-btn active" data-tag="ALL" onclick="filterByTag('ALL')">All</button>
+                        <button class="tag-filter-btn" data-tag="URGENT"     onclick="filterByTag('URGENT')"     style="border-color: var(--tag-urgent);">Urgent</button>
+                        <button class="tag-filter-btn" data-tag="CLIENT"     onclick="filterByTag('CLIENT')"     style="border-color: var(--tag-client);">Client</button>
+                        <button class="tag-filter-btn" data-tag="TRADE"      onclick="filterByTag('TRADE')"      style="border-color: var(--tag-trade);">Trade</button>
+                        <button class="tag-filter-btn" data-tag="RESEARCH"   onclick="filterByTag('RESEARCH')"   style="border-color: var(--tag-research);">Research</button>
+                        <button class="tag-filter-btn" data-tag="OPERATIONS" onclick="filterByTag('OPERATIONS')" style="border-color: var(--tag-operations);">Ops</button>
+                    </div>
+
+                    <!-- Email cards container -->
+                    <div class="ceo-inbox-panel" id="ceo-emails">
+                        <div class="loading-overlay">
+                            <div class="loading-spinner"></div>
+                            Loading CEO emails…
+                        </div>
+                    </div>
+
+                    <button class="btn btn-sm btn-danger" onclick="archiveAllSkip()" style="margin-top: 12px;">
+                        Archive all SKIP
+                    </button>
+                </div>
+            </div>
+        </div><!-- /.dashboard-col-left -->
+
+        <!-- RIGHT: Overnight + Econ -->
+        <div class="dashboard-col-right">
+
+            <!-- Overnight Summary Widget -->
+            <div class="card" style="margin-bottom: 16px;">
+                <div class="card-header">
+                    <h2 class="card-title">🌙 Overnight Summary</h2>
+                    <a href="/overnight" class="btn btn-sm btn-secondary">History →</a>
+                </div>
+                <div class="card-body" id="overnight-widget">
+                    <div class="loading-overlay">
+                        <div class="loading-spinner"></div> Loading…
+                    </div>
+                </div>
+            </div>
+
+            <!-- Today's Econ Events Widget -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">📅 Today's Econ Events</h2>
+                    <a href="/econ" class="btn btn-sm btn-secondary">Calendar →</a>
+                </div>
+                <div class="card-body" id="econ-widget">
+                    <div class="loading-overlay">
+                        <div class="loading-spinner"></div> Loading…
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /.dashboard-col-right -->
+    </div><!-- /.dashboard-cols -->
+
+</div><!-- /.dashboard-grid -->
+
+<style>
+/* Dashboard-specific layout */
+.dashboard-grid  { display: flex; flex-direction: column; gap: 16px; }
+.stats-strip     { display: flex; align-items: center; padding: 14px 24px; gap: 0; flex-wrap: wrap; }
+.stat-item       { display: flex; flex-direction: column; gap: 2px; padding: 4px 20px 4px 0; }
+.stat-divider    { width: 1px; height: 36px; background: var(--border); margin: 0 20px 0 0; flex-shrink: 0; }
+.stat-label      { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-value      { font-size: 20px; font-weight: 700; color: var(--navy); }
+.stat-value.urgent { color: var(--tag-urgent); }
+
+.dashboard-cols        { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.dashboard-col-left,
+.dashboard-col-right   { display: flex; flex-direction: column; gap: 16px; }
+
+@media (max-width: 1100px) {
+    .dashboard-cols { grid-template-columns: 1fr; }
+    .stats-strip    { gap: 0; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/email.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+
+    // ── Today's date ──────────────────────────
+    document.getElementById('today-date').textContent =
+        new Date().toLocaleDateString('en-GB', {
+            weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
+        });
+
+    // ── CEO Emails ────────────────────────────
+    try {
+        const emails = await argoFetch('/api/v1/email/ceo-inbox?limit=12');
+        renderCeoEmails(emails);
+        document.getElementById('urgent-count').textContent =
+            emails.filter(function (e) { return e.tag === 'URGENT'; }).length;
+        document.getElementById('unread-count').textContent =
+            emails.filter(function (e) { return !e.is_read; }).length;
+    } catch (_) {
+        document.getElementById('ceo-emails').innerHTML =
+            '<p style="text-align:center; color:var(--text-muted); padding:20px; font-size:13px;">Unable to load emails</p>';
+    }
+
+    // ── Overnight Summary ─────────────────────
+    try {
+        const summary = await argoFetch('/api/v1/overnight/latest');
+        const sentDate = new Date(summary.created_at).toLocaleDateString('en-GB', {
+            weekday: 'short', day: 'numeric', month: 'short'
+        });
+        document.getElementById('overnight-widget').innerHTML = `
+            <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px; display:flex; gap:12px;">
+                <span>${sentDate}</span>
+                <span>${summary.whatsapp_delivered ? '✓ WhatsApp sent' : '✗ WhatsApp not sent'}</span>
+                <span>${summary.email_delivered ? '✓ Email sent' : ''}</span>
+            </div>
+            <p style="font-size:13px; line-height:1.6; color:var(--text-secondary);">
+                ${escapeHtmlDashboard(summary.executive_summary || summary.content || '')}
+            </p>
+            <a href="/overnight/${summary.id}" class="btn btn-sm btn-secondary" style="margin-top:12px;">
+                View full summary →
+            </a>
+        `;
+    } catch (_) {
+        document.getElementById('overnight-widget').innerHTML =
+            '<p style="text-align:center; color:var(--text-muted); padding:16px; font-size:13px;">No summary generated yet today</p>';
+    }
+
+    // ── Today's Econ Events ───────────────────
+    try {
+        const events = await argoFetch('/api/v1/econ/today');
+        document.getElementById('econ-count').textContent = events.length;
+
+        if (!events.length) {
+            document.getElementById('econ-widget').innerHTML =
+                '<p style="text-align:center; color:var(--text-muted); padding:16px; font-size:13px;">No high-impact events today</p>';
+        } else {
+            document.getElementById('econ-widget').innerHTML = events.map(function (ev) {
+                const imp = (ev.importance || 'LOW').toLowerCase();
+                const actual   = ev.actual   != null ? `<span style="color:#16a34a; font-weight:600;">${ev.actual}</span>` : '—';
+                const forecast = ev.forecast != null ? ev.forecast : '—';
+                return `
+                    <div style="display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border);">
+                        <span class="badge badge-${imp}" style="min-width:52px; justify-content:center;">${ev.importance}</span>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtmlDashboard(ev.event_name)}</div>
+                            <div style="font-size:11px; color:var(--text-muted);">
+                                ${ev.country || ''} &nbsp;|&nbsp; Forecast: ${forecast} &nbsp;|&nbsp; Actual: ${actual}
+                            </div>
+                        </div>
+                        <span style="font-size:11px; color:var(--text-muted);">${ev.release_time || ''}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+    } catch (_) {
+        document.getElementById('econ-widget').innerHTML =
+            '<p style="text-align:center; color:var(--text-muted); padding:16px; font-size:13px;">Unable to load events</p>';
+    }
+
+    // ── Meeting count ──────────────────────────
+    try {
+        const stats = await argoFetch('/api/v1/meetings/stats');
+        document.getElementById('meetings-count').textContent = stats.last_30_days || 0;
+    } catch (_) {
+        document.getElementById('meetings-count').textContent = '—';
+    }
+});
+
+// ─── Render CEO Email Cards ───────────────
+
+function renderCeoEmails(emails) {
+    const container = document.getElementById('ceo-emails');
+    if (!emails || !emails.length) {
+        container.innerHTML = `
+            <div class="inbox-empty">
+                <span class="inbox-empty-icon">📭</span>
+                No emails in CEO inbox
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = emails.map(function (email) {
+        const tag      = email.tag || 'SKIP';
+        const tagClass = tag.toLowerCase();
+        const highlight = (email.highlights && email.highlights[0]) || null;
+        const score    = email.relevance_score || 0;
+        const scoreCls = scoreClass(score);
+
+        return `
+            <div class="email-card email-card-${tagClass} ${email.is_read ? '' : 'email-card-unread'}"
+                 data-tag="${tag}"
+                 data-email-id="${email.id}"
+                 id="email-card-${email.id}">
+
+                <div class="email-card-header">
+                    <div class="email-card-meta">
+                        ${renderTagBadge(tag)}
+                        <span class="email-card-sender">${escapeHtmlDashboard(email.sender_name || email.sender_email || '')}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span class="score-badge score-badge-${scoreCls}">${score}</span>
+                        <span class="email-card-time">${formatRelativeTime(email.received_at)}</span>
+                    </div>
+                </div>
+
+                <div class="email-card-subject">${escapeHtmlDashboard(email.subject || '(no subject)')}</div>
+
+                ${highlight ? `<div class="email-card-highlight">${escapeHtmlDashboard(highlight.highlight_text || '')}</div>` : ''}
+                ${highlight && highlight.action_required
+                    ? `<div class="email-card-action">${escapeHtmlDashboard(highlight.action_required)}</div>`
+                    : ''}
+
+                <div class="email-card-footer">
+                    <div class="email-card-actions">
+                        <a href="/email/${email.id}" class="btn btn-sm btn-secondary">View</a>
+                        <button class="btn btn-sm btn-ghost" onclick="archiveEmail('${email.id}')">Archive</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ─── Tiny escape helper (no dependency on external lib) ───
+
+function escapeHtmlDashboard(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+</script>
+{% endblock %}

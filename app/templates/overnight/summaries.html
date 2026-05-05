@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}Overnight Summaries{% endblock %}
+{% block page_title %}Overnight Summaries{% endblock %}
+
+{% block topbar_actions %}
+{% if user and user.role in ('dev_lead', 'ceo') %}
+<button class="btn btn-sm btn-primary" id="trigger-btn" onclick="triggerSummary()">
+    ⚡ Trigger now
+</button>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ Search Bar ════════════════════════════ -->
+<div class="card" style="margin-bottom: 16px;">
+    <div class="card-body" style="padding: 12px 16px;">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div class="search-bar" style="flex:1; min-width:260px;">
+                <span style="color:var(--text-muted);">🔍</span>
+                <input type="text" id="search-input" placeholder="Search summaries…"
+                       oninput="debounce(applySearch, 300)()">
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; color:var(--text-muted);">From:</label>
+                <input type="date" class="form-control" id="date-from"
+                       onchange="applySearch()" style="width:140px; padding:6px 10px;">
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; color:var(--text-muted);">To:</label>
+                <input type="date" class="form-control" id="date-to"
+                       onchange="applySearch()" style="width:140px; padding:6px 10px;">
+            </div>
+            <button class="btn btn-sm btn-ghost" onclick="resetSearch()">Reset</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ Summaries Table ═══════════════════════ -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Past Summaries</h2>
+        <span id="row-count" style="font-size:12px; color:var(--text-muted);">Loading…</span>
+    </div>
+
+    <div class="loading-overlay" id="table-loading">
+        <div class="loading-spinner"></div> Loading summaries…
+    </div>
+
+    <div class="table-wrapper" id="table-wrapper" style="display:none;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width:140px;">Date</th>
+                    <th>Executive Summary</th>
+                    <th style="width:100px; text-align:center;">WhatsApp</th>
+                    <th style="width:80px; text-align:center;">Email</th>
+                    <th style="width:80px;"></th>
+                </tr>
+            </thead>
+            <tbody id="summaries-tbody"></tbody>
+        </table>
+    </div>
+
+    <div class="empty-state" id="empty-state" style="display:none;">
+        <div class="empty-state-icon">🌙</div>
+        <div class="empty-state-title">No summaries yet</div>
+        <div class="empty-state-desc">Summaries are generated nightly. Use "Trigger now" to generate one manually.</div>
+    </div>
+</div>
+
+<!-- ══ Trigger Modal ═════════════════════════ -->
+<div class="modal" id="trigger-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-card">
+        <div class="modal-header">
+            <span class="modal-title">⚡ Trigger Overnight Summary</span>
+            <button class="modal-close" onclick="closeModal('trigger-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">
+                This will immediately run the overnight briefing pipeline — fetching news,
+                market data, and email digest — then send via WhatsApp (if enabled).
+            </p>
+            <div class="form-group">
+                <label>Date (default: today)</label>
+                <input type="date" class="form-control" id="trigger-date">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="trigger-send-whatsapp" checked> Send WhatsApp
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('trigger-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmTrigger()">Run now</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allSummaries = [];
+
+document.addEventListener('DOMContentLoaded', async function () {
+    // Pre-fill trigger date
+    const todayEl = document.getElementById('trigger-date');
+    if (todayEl) todayEl.value = new Date().toISOString().slice(0, 10);
+
+    await loadSummaries();
+});
+
+async function loadSummaries() {
+    try {
+        allSummaries = await argoFetch('/api/v1/overnight/?limit=200');
+        document.getElementById('table-loading').style.display = 'none';
+        renderTable(allSummaries);
+    } catch (_) {
+        document.getElementById('table-loading').innerHTML =
+            '<p style="color:var(--text-muted); padding:20px; text-align:center;">Unable to load summaries.</p>';
+    }
+}
+
+function renderTable(data) {
+    document.getElementById('row-count').textContent = `${data.length} record(s)`;
+
+    if (!data.length) {
+        document.getElementById('table-wrapper').style.display = 'none';
+        document.getElementById('empty-state').style.display   = 'block';
+        return;
+    }
+    document.getElementById('empty-state').style.display   = 'none';
+    document.getElementById('table-wrapper').style.display = 'block';
+
+    document.getElementById('summaries-tbody').innerHTML = data.map(function (s) {
+        const date     = new Date(s.created_at).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+        const preview  = (s.executive_summary || s.content || '').slice(0, 180);
+        const waIcon   = s.whatsapp_delivered ? '✅' : '✗';
+        const emlIcon  = s.email_delivered    ? '✅' : '—';
+        return `
+            <tr onclick="window.location='/overnight/${s.id}'" style="cursor:pointer;">
+                <td style="font-size:12px; color:var(--text-secondary); white-space:nowrap;">${date}</td>
+                <td>
+                    <div style="font-size:13px; color:var(--text-secondary); max-width:560px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        ${esc(preview)}${preview.length >= 180 ? '…' : ''}
+                    </div>
+                </td>
+                <td style="text-align:center; font-size:14px;">${waIcon}</td>
+                <td style="text-align:center; font-size:14px;">${emlIcon}</td>
+                <td onclick="event.stopPropagation();">
+                    <a href="/overnight/${s.id}" class="btn btn-sm btn-secondary">View</a>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function applySearch() {
+    const q    = (document.getElementById('search-input').value || '').toLowerCase();
+    const from = document.getElementById('date-from').value;
+    const to   = document.getElementById('date-to').value;
+
+    const filtered = allSummaries.filter(function (s) {
+        const dateStr = (s.created_at || '').slice(0, 10);
+        if (from && dateStr < from) return false;
+        if (to   && dateStr > to)   return false;
+        if (q) {
+            const text = (s.executive_summary || s.content || '').toLowerCase();
+            if (!text.includes(q)) return false;
+        }
+        return true;
+    });
+    renderTable(filtered);
+}
+
+function resetSearch() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('date-from').value    = '';
+    document.getElementById('date-to').value      = '';
+    renderTable(allSummaries);
+}
+
+function triggerSummary() {
+    openModal('trigger-modal');
+}
+
+async function confirmTrigger() {
+    const date       = document.getElementById('trigger-date').value;
+    const sendWa     = document.getElementById('trigger-send-whatsapp').checked;
+    const btn        = document.querySelector('#trigger-modal .btn-primary');
+    btn.disabled     = true;
+    btn.textContent  = 'Running…';
+
+    try {
+        const result = await argoFetch('/api/v1/overnight/trigger', {
+            method: 'POST',
+            body: JSON.stringify({ date, send_whatsapp: sendWa }),
+        });
+        closeModal('trigger-modal');
+        showToast('Summary generated successfully', 'success');
+        await loadSummaries();
+        if (result.id) window.location = `/overnight/${result.id}`;
+    } catch (_) {
+        btn.disabled    = false;
+        btn.textContent = 'Run now';
+    }
+}
+
+function esc(t) {
+    if (!t) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

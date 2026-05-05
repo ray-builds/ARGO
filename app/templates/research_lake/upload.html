@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Upload to Research Lake{% endblock %}
+{% block page_title %}Upload Document{% endblock %}
+
+{% block topbar_actions %}
+<a href="/datalake" class="btn btn-sm btn-ghost">← Back to Research Lake</a>
+{% endblock %}
+
+{% block content %}
+
+<div style="max-width:760px;">
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">📄 Add Document to Research Lake</h2>
+        </div>
+        <div class="card-body" style="padding:24px;">
+
+            <form id="upload-form">
+
+                <!-- ── File upload OR text paste ──────────── -->
+                <div style="margin-bottom:24px;">
+                    <div style="display:flex; gap:0; border-radius:6px; overflow:hidden; border:1px solid var(--border); width:fit-content; margin-bottom:16px;">
+                        <button type="button" class="tab-toggle active" id="tab-file" onclick="setUploadTab('file')"
+                                style="padding:8px 18px; font-size:13px; font-weight:500; border:none; background:var(--navy); color:white; cursor:pointer;">
+                            📁 File Upload
+                        </button>
+                        <button type="button" class="tab-toggle" id="tab-text" onclick="setUploadTab('text')"
+                                style="padding:8px 18px; font-size:13px; font-weight:500; border:none; background:white; color:var(--text-secondary); cursor:pointer;">
+                            📋 Paste Text
+                        </button>
+                    </div>
+
+                    <!-- File drop zone -->
+                    <div id="file-panel">
+                        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                            <div class="drop-zone-icon">📄</div>
+                            <div class="drop-zone-text" id="drop-label">Click to browse or drag &amp; drop</div>
+                            <div class="drop-zone-sub">PDF, DOCX, TXT — max 50 MB</div>
+                        </div>
+                        <input type="file" id="file-input" style="display:none;"
+                               accept=".pdf,.docx,.txt,.md"
+                               onchange="handleFileSelect(this)">
+                    </div>
+
+                    <!-- Text paste -->
+                    <div id="text-panel" style="display:none;">
+                        <div class="form-group">
+                            <label>Paste document text</label>
+                            <textarea class="form-control" id="paste-text" rows="12"
+                                      placeholder="Paste the full document text here…"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Metadata ────────────────────────────── -->
+                <div class="divider"></div>
+                <div class="section-title" style="margin-bottom:16px;">Document Metadata</div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                    <div class="form-group">
+                        <label>Title *</label>
+                        <input type="text" class="form-control" id="doc-title"
+                               placeholder="e.g. Goldman Sachs — Rates Outlook Q3 2026">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Source / Publisher</label>
+                        <input type="text" class="form-control" id="doc-source"
+                               placeholder="e.g. Goldman Sachs Research">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Asset Class</label>
+                        <select class="form-control" id="doc-asset-class">
+                            <option value="">Select asset class</option>
+                            <option value="Rates">Rates</option>
+                            <option value="FX">FX</option>
+                            <option value="Equities">Equities</option>
+                            <option value="Credit">Credit</option>
+                            <option value="Commodities">Commodities</option>
+                            <option value="Macro">Macro</option>
+                            <option value="EM">Emerging Markets</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Document Date</label>
+                        <input type="date" class="form-control" id="doc-date">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Tags (comma-separated)</label>
+                    <input type="text" class="form-control" id="doc-tags"
+                           placeholder="e.g. rates, duration, fed, q3-2026">
+                </div>
+
+                <div class="form-group">
+                    <label>Notes (optional)</label>
+                    <textarea class="form-control" id="doc-notes" rows="3"
+                              placeholder="Add any context or notes about this document…"></textarea>
+                </div>
+
+                <!-- Progress bar (hidden until upload) -->
+                <div id="upload-progress" style="display:none; margin-bottom:16px;">
+                    <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;" id="progress-label">Uploading…</div>
+                    <div style="height:6px; background:var(--border); border-radius:3px; overflow:hidden;">
+                        <div id="progress-bar" style="height:100%; background:var(--cyan); width:0%; transition:width 0.3s;"></div>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:10px; justify-content:flex-end; padding-top:8px; border-top:1px solid var(--border);">
+                    <a href="/datalake" class="btn btn-ghost">Cancel</a>
+                    <button type="submit" class="btn btn-primary" id="submit-btn" onclick="submitUpload(event)">
+                        ⬆ Upload &amp; Index
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let uploadMode = 'file';
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Pre-fill date
+    const d = document.getElementById('doc-date');
+    if (d) d.value = new Date().toISOString().slice(0, 10);
+    setupDragDrop();
+});
+
+function setUploadTab(mode) {
+    uploadMode = mode;
+    document.getElementById('file-panel').style.display = mode === 'file' ? 'block' : 'none';
+    document.getElementById('text-panel').style.display = mode === 'text' ? 'block' : 'none';
+    document.getElementById('tab-file').style.background = mode === 'file' ? 'var(--navy)' : 'white';
+    document.getElementById('tab-file').style.color      = mode === 'file' ? 'white' : 'var(--text-secondary)';
+    document.getElementById('tab-text').style.background = mode === 'text' ? 'var(--navy)' : 'white';
+    document.getElementById('tab-text').style.color      = mode === 'text' ? 'white' : 'var(--text-secondary)';
+}
+
+function handleFileSelect(input) {
+    if (input.files && input.files[0]) {
+        document.getElementById('drop-label').textContent = input.files[0].name;
+        // Auto-fill title from filename
+        const titleEl = document.getElementById('doc-title');
+        if (!titleEl.value) {
+            titleEl.value = input.files[0].name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+        }
+    }
+}
+
+function setupDragDrop() {
+    const zone = document.getElementById('drop-zone');
+    if (!zone) return;
+    zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', function () { zone.classList.remove('drag-over'); });
+    zone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            document.getElementById('file-input').files = e.dataTransfer.files;
+            document.getElementById('drop-label').textContent = file.name;
+            const titleEl = document.getElementById('doc-title');
+            if (!titleEl.value) titleEl.value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+        }
+    });
+}
+
+async function submitUpload(e) {
+    if (e) e.preventDefault();
+
+    const title     = document.getElementById('doc-title').value.trim();
+    const source    = document.getElementById('doc-source').value.trim();
+    const assetCls  = document.getElementById('doc-asset-class').value;
+    const date      = document.getElementById('doc-date').value;
+    const tags      = document.getElementById('doc-tags').value.trim();
+    const notes     = document.getElementById('doc-notes').value.trim();
+
+    if (!title) { showToast('Please enter a document title', 'warning'); return; }
+
+    const btn       = document.getElementById('submit-btn');
+    btn.disabled    = true;
+    btn.textContent = 'Uploading…';
+
+    const progressWrap = document.getElementById('upload-progress');
+    const progressBar  = document.getElementById('progress-bar');
+    const progressLbl  = document.getElementById('progress-label');
+    progressWrap.style.display = 'block';
+
+    // Fake progress
+    let prog = 0;
+    const progInterval = setInterval(function () {
+        prog = Math.min(prog + Math.random() * 12, 85);
+        progressBar.style.width = prog + '%';
+    }, 300);
+
+    try {
+        let data;
+
+        if (uploadMode === 'text') {
+            const text = document.getElementById('paste-text').value.trim();
+            if (!text) { showToast('Please paste document text', 'warning'); return; }
+
+            data = await argoFetch('/api/v1/datalake/ingest-text', {
+                method: 'POST',
+                body: JSON.stringify({ title, source_name: source, asset_class: assetCls, source_date: date, tags, notes, content: text }),
+            });
+        } else {
+            const fileInput = document.getElementById('file-input');
+            if (!fileInput.files || !fileInput.files[0]) { showToast('Please select a file', 'warning'); return; }
+
+            const fd = new FormData();
+            fd.append('file', fileInput.files[0]);
+            fd.append('title', title);
+            fd.append('source_name', source);
+            fd.append('asset_class', assetCls);
+            fd.append('source_date', date);
+            fd.append('tags', tags);
+            fd.append('notes', notes);
+
+            const resp = await fetch('/api/v1/datalake/upload', { method: 'POST', body: fd });
+            if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.detail || `Upload failed: ${resp.status}`); }
+            data = await resp.json();
+        }
+
+        clearInterval(progInterval);
+        progressBar.style.width  = '100%';
+        progressLbl.textContent  = 'Indexing document…';
+
+        showToast('Document uploaded and indexed successfully', 'success');
+        setTimeout(function () { window.location = data.id ? `/datalake/${data.id}` : '/datalake'; }, 1200);
+
+    } catch (err) {
+        clearInterval(progInterval);
+        progressWrap.style.display = 'none';
+        showToast(err.message, 'error');
+    } finally {
+        btn.disabled    = false;
+        btn.textContent = '⬆ Upload & Index';
+    }
+}
+</script>
+{% endblock %}

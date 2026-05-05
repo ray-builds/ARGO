@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}Research Lake{% endblock %}
+{% block page_title %}Research Lake{% endblock %}
+
+{% block topbar_actions %}
+<a href="/datalake/upload" class="btn btn-sm btn-primary">⬆ Upload Document</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ Search Hero ═══════════════════════════ -->
+<div class="card" style="margin-bottom:20px; background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);">
+    <div class="card-body" style="padding:32px 28px;">
+        <h2 style="font-size:20px; font-weight:700; color:white; margin-bottom:6px;">Research Intelligence</h2>
+        <p style="font-size:13px; color:rgba(255,255,255,0.6); margin-bottom:20px;">
+            Ask any question about your research corpus using semantic AI search.
+        </p>
+        <div style="display:flex; gap:10px;">
+            <div class="search-bar" style="flex:1; background:rgba(255,255,255,0.95); border-color:transparent;">
+                <span style="color:var(--text-muted); font-size:16px;">🔍</span>
+                <input type="text" id="search-input"
+                       placeholder="Ask anything about your research…"
+                       style="font-size:14px;"
+                       onkeydown="if(event.key==='Enter') doSearch()">
+            </div>
+            <button class="btn btn-primary" onclick="doSearch()" id="search-btn"
+                    style="padding:8px 20px; background:var(--cyan);">
+                Search
+            </button>
+        </div>
+        <!-- Suggested queries -->
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;" id="suggested-queries">
+            <span style="font-size:11px; color:rgba(255,255,255,0.5); margin-right:4px;">Try:</span>
+            {% for q in ['What is our view on UST duration?', 'Goldman rates outlook Q3', 'China macro risks', 'Convexity trades ideas'] %}
+            <button onclick="setQuery('{{ q }}')"
+                    style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.8); border-radius:20px; padding:3px 12px; font-size:11px; cursor:pointer; transition:all 0.15s;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.2)'"
+                    onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                {{ q }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- ══ Main: Results + Filter Sidebar ════════ -->
+<div style="display:grid; grid-template-columns:1fr 220px; gap:16px; align-items:start;">
+
+    <!-- Results Column -->
+    <div>
+        <!-- Stats / info bar -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <span id="result-count" style="font-size:13px; color:var(--text-muted);">
+                Enter a query above to search your research corpus.
+            </span>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <label style="font-size:12px; color:var(--text-muted);">Sort:</label>
+                <select class="form-control" id="sort-select" onchange="reSort()"
+                        style="width:130px; padding:5px 8px; font-size:12px;">
+                    <option value="similarity">Relevance</option>
+                    <option value="date">Date (newest)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Results container -->
+        <div id="results-container">
+            <div class="empty-state" id="empty-state">
+                <div class="empty-state-icon">🔬</div>
+                <div class="empty-state-title">Your research library</div>
+                <div class="empty-state-desc">
+                    Use the search bar to find documents, insights, and research by content.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Filters -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Filter by Asset Class</span>
+            </div>
+            <div class="card-body" style="padding:8px 0;">
+                <div id="asset-filter-list">
+                    {% set asset_classes = ['All', 'Rates', 'FX', 'Equities', 'Credit', 'Commodities', 'Macro', 'EM', 'Other'] %}
+                    {% for ac in asset_classes %}
+                    <button class="asset-filter-item {% if loop.first %}active{% endif %}"
+                            data-ac="{{ ac }}" onclick="setAssetFilter('{{ ac }}')">
+                        {{ ac }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:12px;">
+            <div class="card-header"><span class="card-title">Source</span></div>
+            <div class="card-body" style="padding:8px 0;">
+                <div id="source-filter-list">
+                    <button class="asset-filter-item active" data-src="all" onclick="setSourceFilter('all')">All sources</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+.result-card {
+    background: white;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    transition: box-shadow 0.15s;
+}
+.result-card:hover { box-shadow: var(--shadow-md); }
+
+.result-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--navy);
+    margin-bottom: 4px;
+}
+.result-excerpt {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 8px 0;
+}
+.result-excerpt mark {
+    background: #fef9c3;
+    border-radius: 2px;
+    padding: 0 2px;
+}
+.result-meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 8px;
+}
+
+.asset-filter-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 14px;
+    background: transparent;
+    border: none;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.12s;
+}
+.asset-filter-item:hover { background: var(--light-bg); color: var(--text-primary); }
+.asset-filter-item.active { color: var(--cyan); background: rgba(10,143,183,0.08); font-weight: 600; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allResults     = [];
+let activeAsset    = 'All';
+let activeSource   = 'all';
+
+async function doSearch() {
+    const q = document.getElementById('search-input').value.trim();
+    if (!q) { showToast('Please enter a search query', 'warning'); return; }
+
+    const btn = document.getElementById('search-btn');
+    btn.disabled = true; btn.textContent = 'Searching…';
+
+    document.getElementById('results-container').innerHTML =
+        '<div class="loading-overlay"><div class="loading-spinner"></div> Searching your research corpus…</div>';
+    document.getElementById('result-count').textContent = 'Searching…';
+
+    try {
+        const assetFilter = activeAsset !== 'All' ? `&asset_class=${encodeURIComponent(activeAsset)}` : '';
+        allResults = await argoFetch(`/api/v1/datalake/search?q=${encodeURIComponent(q)}&limit=20${assetFilter}`);
+        renderResults(allResults);
+        updateSourceFilter(allResults);
+        document.getElementById('suggested-queries').style.display = 'none';
+    } catch (_) {
+        document.getElementById('results-container').innerHTML =
+            '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Search failed</div><div class="empty-state-desc">Please try again.</div></div>';
+        document.getElementById('result-count').textContent = '';
+    } finally {
+        btn.disabled = false; btn.textContent = 'Search';
+    }
+}
+
+function renderResults(results) {
+    document.getElementById('result-count').textContent =
+        results.length ? `${results.length} result(s) found` : 'No results found';
+
+    if (!results.length) {
+        document.getElementById('results-container').innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🔍</div>
+                <div class="empty-state-title">No results</div>
+                <div class="empty-state-desc">Try a different query or expand your filters.</div>
+            </div>`;
+        return;
+    }
+
+    document.getElementById('results-container').innerHTML = results.map(function (r) {
+        const score    = r.similarity_score != null ? Math.round(r.similarity_score * 100) : 0;
+        const scoreCls = scoreClass(score);
+        const date     = r.source_date ? new Date(r.source_date).toLocaleDateString('en-GB') : '';
+        return `
+            <div class="result-card">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                    <div class="result-title">${esc(r.title || '(Untitled)')}</div>
+                    <span class="score-badge score-badge-${scoreCls}" style="flex-shrink:0;">${score}%</span>
+                </div>
+                <div class="result-excerpt">${esc(r.excerpt || r.chunk_text || '').slice(0, 300)}…</div>
+                <div class="result-meta">
+                    ${r.source_name   ? `<span>📰 ${esc(r.source_name)}</span>` : ''}
+                    ${r.asset_class   ? `<span>🏷 ${esc(r.asset_class)}</span>` : ''}
+                    ${date            ? `<span>📅 ${date}</span>` : ''}
+                    ${r.document_id   ? `<a href="/datalake/${r.document_id}" class="btn btn-sm btn-secondary" style="margin-left:auto;">View doc →</a>` : ''}
+                </div>
+            </div>`;
+    }).join('');
+}
+
+function updateSourceFilter(results) {
+    const sources = [...new Set(results.map(function (r) { return r.source_name; }).filter(Boolean))];
+    const list    = document.getElementById('source-filter-list');
+    list.innerHTML = `<button class="asset-filter-item active" data-src="all" onclick="setSourceFilter('all')">All sources</button>`;
+    sources.forEach(function (src) {
+        const btn = document.createElement('button');
+        btn.className   = 'asset-filter-item';
+        btn.dataset.src = src;
+        btn.textContent = src;
+        btn.onclick     = function () { setSourceFilter(src); };
+        list.appendChild(btn);
+    });
+}
+
+function setAssetFilter(ac) {
+    activeAsset = ac;
+    document.querySelectorAll('#asset-filter-list .asset-filter-item').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.ac === ac);
+    });
+}
+
+function setSourceFilter(src) {
+    activeSource = src;
+    document.querySelectorAll('#source-filter-list .asset-filter-item').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.src === src);
+    });
+    const filtered = src === 'all' ? allResults : allResults.filter(function (r) { return r.source_name === src; });
+    renderResults(filtered);
+}
+
+function reSort() {
+    const by = document.getElementById('sort-select').value;
+    const sorted = [...allResults].sort(function (a, b) {
+        if (by === 'date') return new Date(b.source_date || 0) - new Date(a.source_date || 0);
+        return (b.similarity_score || 0) - (a.similarity_score || 0);
+    });
+    renderResults(sorted);
+}
+
+function setQuery(text) {
+    document.getElementById('search-input').value = text;
+    doSearch();
+}
+
+function esc(t) {
+    if (!t) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% block title %}Clients{% endblock %}
+{% block page_title %}Client Intelligence{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-sm btn-primary" onclick="openModal('add-client-modal')">+ Add Client</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ Filters ════════════════════════════════ -->
+<div class="card" style="margin-bottom:16px;">
+    <div class="card-body" style="padding:12px 16px;">
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+            <div class="search-bar" style="flex:1; min-width:220px;">
+                <span style="color:var(--text-muted);">🔍</span>
+                <input type="text" id="search-input" placeholder="Search clients by name or firm…"
+                       oninput="debounce(applyFilters, 250)()">
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; color:var(--text-muted);">Tier:</label>
+                <select class="form-control" id="tier-filter" onchange="applyFilters()"
+                        style="width:110px; padding:6px 10px;">
+                    <option value="">All tiers</option>
+                    <option value="1">Tier 1</option>
+                    <option value="2">Tier 2</option>
+                    <option value="3">Tier 3</option>
+                </select>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; color:var(--text-muted);">Country:</label>
+                <select class="form-control" id="country-filter" onchange="applyFilters()"
+                        style="width:140px; padding:6px 10px;" id="country-select">
+                    <option value="">All countries</option>
+                </select>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <input type="checkbox" id="overdue-filter" onchange="applyFilters()">
+                <label style="font-size:12px; color:var(--text-muted);" for="overdue-filter">
+                    🔴 Follow-up overdue only
+                </label>
+            </div>
+            <button class="btn btn-sm btn-ghost" onclick="resetFilters()">Reset</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ Clients Table ══════════════════════════ -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Clients</h2>
+        <span id="row-count" style="font-size:12px; color:var(--text-muted);">Loading…</span>
+    </div>
+
+    <div class="loading-overlay" id="table-loading">
+        <div class="loading-spinner"></div> Loading clients…
+    </div>
+
+    <div class="table-wrapper" id="table-wrapper" style="display:none;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Firm</th>
+                    <th style="width:80px;">Tier</th>
+                    <th>Country</th>
+                    <th>Email</th>
+                    <th style="width:120px;">Last Contact</th>
+                    <th style="width:80px; text-align:center;">Follow-up</th>
+                    <th style="width:80px;"></th>
+                </tr>
+            </thead>
+            <tbody id="clients-tbody"></tbody>
+        </table>
+    </div>
+
+    <div class="empty-state" id="empty-state" style="display:none;">
+        <div class="empty-state-icon">👥</div>
+        <div class="empty-state-title">No clients found</div>
+        <div class="empty-state-desc">Add your first client using the button above.</div>
+    </div>
+</div>
+
+<!-- ══ Add Client Modal ═══════════════════════ -->
+<div class="modal" id="add-client-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-card">
+        <div class="modal-header">
+            <span class="modal-title">+ Add Client</span>
+            <button class="modal-close" onclick="closeModal('add-client-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                <div class="form-group">
+                    <label>First Name *</label>
+                    <input type="text" class="form-control" id="client-first-name">
+                </div>
+                <div class="form-group">
+                    <label>Last Name *</label>
+                    <input type="text" class="form-control" id="client-last-name">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Firm / Organisation</label>
+                <input type="text" class="form-control" id="client-firm">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" class="form-control" id="client-email">
+                </div>
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="text" class="form-control" id="client-phone">
+                </div>
+                <div class="form-group">
+                    <label>Tier</label>
+                    <select class="form-control" id="client-tier">
+                        <option value="1">Tier 1 (Top)</option>
+                        <option value="2" selected>Tier 2</option>
+                        <option value="3">Tier 3</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Country</label>
+                    <input type="text" class="form-control" id="client-country">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea class="form-control" id="client-notes" rows="3"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('add-client-modal')">Cancel</button>
+            <button class="btn btn-primary" onclick="submitAddClient()">Add Client</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allClients = [];
+
+document.addEventListener('DOMContentLoaded', async function () {
+    await loadClients();
+});
+
+async function loadClients() {
+    try {
+        allClients = await argoFetch('/api/v1/clients/?limit=200');
+        document.getElementById('table-loading').style.display = 'none';
+        populateCountryFilter(allClients);
+        renderTable(allClients);
+    } catch (_) {
+        document.getElementById('table-loading').innerHTML =
+            '<p style="color:var(--text-muted); padding:20px; text-align:center;">Unable to load clients.</p>';
+    }
+}
+
+function populateCountryFilter(clients) {
+    const countries = [...new Set(clients.map(function (c) { return c.country; }).filter(Boolean))].sort();
+    const sel = document.getElementById('country-filter');
+    countries.forEach(function (country) {
+        const opt = document.createElement('option');
+        opt.value = country;
+        opt.textContent = country;
+        sel.appendChild(opt);
+    });
+}
+
+function renderTable(clients) {
+    document.getElementById('row-count').textContent = `${clients.length} client(s)`;
+
+    if (!clients.length) {
+        document.getElementById('table-wrapper').style.display = 'none';
+        document.getElementById('empty-state').style.display = 'block';
+        return;
+    }
+    document.getElementById('empty-state').style.display   = 'none';
+    document.getElementById('table-wrapper').style.display = 'block';
+
+    const today = new Date();
+    document.getElementById('clients-tbody').innerHTML = clients.map(function (c) {
+        const tierCls     = `tier-${c.tier || 2}`;
+        const lastContact = c.last_contact_date ? new Date(c.last_contact_date) : null;
+        const daysSince   = lastContact ? Math.floor((today - lastContact) / 86400000) : null;
+        const overdue     = daysSince === null || daysSince > 30;
+        const lastStr     = lastContact
+            ? lastContact.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'})
+            : 'Never';
+        return `
+            <tr onclick="window.location='/clients/${c.id}'" style="cursor:pointer;">
+                <td style="font-weight:600;">${esc(c.display_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || '—')}</td>
+                <td style="font-size:13px; color:var(--text-secondary);">${esc(c.firm || '—')}</td>
+                <td><span class="badge badge-${tierCls}">Tier ${c.tier || 2}</span></td>
+                <td style="font-size:13px;">${esc(c.country || '—')}</td>
+                <td style="font-size:12px; color:var(--text-secondary);">${esc(c.email || '—')}</td>
+                <td style="font-size:12px; color:var(--text-muted); white-space:nowrap;">
+                    ${lastStr}${daysSince !== null ? ` <span style="color:var(--text-muted);">(${daysSince}d)</span>` : ''}
+                </td>
+                <td style="text-align:center; font-size:16px;">
+                    ${overdue ? '🔴' : '🟢'}
+                </td>
+                <td onclick="event.stopPropagation();">
+                    <a href="/clients/${c.id}" class="btn btn-sm btn-secondary">View</a>
+                </td>
+            </tr>`;
+    }).join('');
+}
+
+function applyFilters() {
+    const q       = (document.getElementById('search-input').value || '').toLowerCase();
+    const tier    = document.getElementById('tier-filter').value;
+    const country = document.getElementById('country-filter').value;
+    const overdue = document.getElementById('overdue-filter').checked;
+    const today   = new Date();
+
+    const filtered = allClients.filter(function (c) {
+        if (tier    && String(c.tier) !== tier) return false;
+        if (country && c.country !== country)   return false;
+        if (overdue) {
+            const last = c.last_contact_date ? new Date(c.last_contact_date) : null;
+            const days = last ? Math.floor((today - last) / 86400000) : 999;
+            if (days <= 30) return false;
+        }
+        if (q) {
+            const hay = [c.display_name, c.first_name, c.last_name, c.firm, c.email].join(' ').toLowerCase();
+            if (!hay.includes(q)) return false;
+        }
+        return true;
+    });
+    renderTable(filtered);
+}
+
+function resetFilters() {
+    document.getElementById('search-input').value  = '';
+    document.getElementById('tier-filter').value   = '';
+    document.getElementById('country-filter').value = '';
+    document.getElementById('overdue-filter').checked = false;
+    renderTable(allClients);
+}
+
+async function submitAddClient() {
+    const first   = document.getElementById('client-first-name').value.trim();
+    const last    = document.getElementById('client-last-name').value.trim();
+    const firm    = document.getElementById('client-firm').value.trim();
+    const email   = document.getElementById('client-email').value.trim();
+    const phone   = document.getElementById('client-phone').value.trim();
+    const tier    = parseInt(document.getElementById('client-tier').value);
+    const country = document.getElementById('client-country').value.trim();
+    const notes   = document.getElementById('client-notes').value.trim();
+
+    if (!first || !last) { showToast('Please enter first and last name', 'warning'); return; }
+
+    try {
+        const client = await argoFetch('/api/v1/clients/', {
+            method: 'POST',
+            body: JSON.stringify({ first_name: first, last_name: last, firm, email, phone, tier, country, notes }),
+        });
+        closeModal('add-client-modal');
+        showToast('Client added', 'success');
+        allClients.unshift(client);
+        renderTable(allClients);
+    } catch (_) {}
+}
+
+function esc(t) {
+    if (!t) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

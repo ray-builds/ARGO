@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Email Inbox{% endblock %}
+{% block page_title %}Email Inbox{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-sm btn-primary" id="fetch-emails-btn"
+        onclick="fetchEmails('{{ user.email if user else '' }}')">
+    ↻ Refresh
+</button>
+<button class="btn btn-sm btn-danger" onclick="archiveAllSkip()">
+    Archive SKIP
+</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ Filter Controls ══════════════════════ -->
+<div class="card" style="margin-bottom: 16px;">
+    <div class="card-body" style="padding: 12px 16px;">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+
+            <!-- Search -->
+            <div class="search-bar" style="flex:1; min-width:220px;">
+                <span style="color:var(--text-muted); font-size:14px;">🔍</span>
+                <input type="text" id="search-input" placeholder="Search by sender, subject…"
+                       oninput="debounce(applyFilters, 300)()">
+            </div>
+
+            <!-- Tag filter -->
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; color:var(--text-muted); white-space:nowrap;">Tag:</label>
+                <select class="form-control" id="tag-filter" onchange="applyFilters()"
+                        style="width:130px; padding: 6px 10px;">
+                    <option value="">All tags</option>
+                    <option value="URGENT">Urgent</option>
+                    <option value="CLIENT">Client</option>
+                    <option value="TRADE">Trade</option>
+                    <option value="RESEARCH">Research</option>
+                    <option value="OPERATIONS">Operations</option>
+                    <option value="HR">HR</option>
+                    <option value="REGULATORY">Regulatory</option>
+                    <option value="SKIP">Skip</option>
+                </select>
+            </div>
+
+            <!-- Date filter -->
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; color:var(--text-muted); white-space:nowrap;">From:</label>
+                <input type="date" class="form-control" id="date-from" onchange="applyFilters()"
+                       style="width:140px; padding: 6px 10px;">
+            </div>
+
+            <!-- Inbox filter -->
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; color:var(--text-muted); white-space:nowrap;">Inbox:</label>
+                <select class="form-control" id="inbox-filter" onchange="applyFilters()"
+                        style="width:110px; padding: 6px 10px;">
+                    <option value="">All</option>
+                    <option value="ceo" {% if request.query_params.get('filter') == 'ceo' %}selected{% endif %}>CEO</option>
+                </select>
+            </div>
+
+            <button class="btn btn-sm btn-ghost" onclick="resetFilters()">Reset</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ Tag filter pills ══════════════════════ -->
+<div class="tag-filter-bar" style="margin-bottom:12px;" id="tag-pills">
+    <button class="tag-filter-btn active" data-tag="ALL"         onclick="filterByTag('ALL')">All</button>
+    <button class="tag-filter-btn" data-tag="URGENT"             onclick="filterByTag('URGENT')"     style="border-color:var(--tag-urgent)">Urgent</button>
+    <button class="tag-filter-btn" data-tag="CLIENT"             onclick="filterByTag('CLIENT')"     style="border-color:var(--tag-client)">Client</button>
+    <button class="tag-filter-btn" data-tag="TRADE"              onclick="filterByTag('TRADE')"      style="border-color:var(--tag-trade)">Trade</button>
+    <button class="tag-filter-btn" data-tag="RESEARCH"           onclick="filterByTag('RESEARCH')"   style="border-color:var(--tag-research)">Research</button>
+    <button class="tag-filter-btn" data-tag="OPERATIONS"         onclick="filterByTag('OPERATIONS')" style="border-color:var(--tag-operations)">Ops</button>
+    <button class="tag-filter-btn" data-tag="HR"                 onclick="filterByTag('HR')"         style="border-color:var(--tag-hr)">HR</button>
+    <button class="tag-filter-btn" data-tag="REGULATORY"         onclick="filterByTag('REGULATORY')" style="border-color:var(--tag-regulatory)">Regulatory</button>
+    <button class="tag-filter-btn" data-tag="SKIP"               onclick="filterByTag('SKIP')"       style="border-color:var(--tag-skip)">Skip</button>
+</div>
+
+<!-- ══ Emails Table ══════════════════════════ -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Emails</h2>
+        <span id="row-count" style="font-size:12px; color:var(--text-muted);">Loading…</span>
+    </div>
+
+    <div class="loading-overlay" id="table-loading">
+        <div class="loading-spinner"></div> Loading emails…
+    </div>
+
+    <div class="table-wrapper" id="table-wrapper" style="display:none;">
+        <table class="table" id="emails-table">
+            <thead>
+                <tr>
+                    <th style="width:52px;">Score</th>
+                    <th style="width:110px;">Tag</th>
+                    <th style="width:200px;">Sender</th>
+                    <th>Subject / Preview</th>
+                    <th style="width:100px;">Received</th>
+                    <th style="width:90px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="emails-tbody">
+            </tbody>
+        </table>
+    </div>
+
+    <div class="empty-state" id="empty-state" style="display:none;">
+        <div class="empty-state-icon">📭</div>
+        <div class="empty-state-title">No emails found</div>
+        <div class="empty-state-desc">Try adjusting your filters or refreshing.</div>
+    </div>
+</div>
+
+<style>
+.subject-preview { font-weight:600; font-size:13px; }
+.body-preview    { font-size:12px; color:var(--text-secondary); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:400px; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/email.js"></script>
+<script>
+let allEmails = [];
+let activeTagFilter = 'ALL';
+
+document.addEventListener('DOMContentLoaded', async function () {
+    await loadEmails();
+});
+
+async function loadEmails() {
+    try {
+        allEmails = await argoFetch('/api/v1/email/?limit=100&sort=relevance_score&order=desc');
+        document.getElementById('table-loading').style.display = 'none';
+        document.getElementById('table-wrapper').style.display = 'block';
+        renderTable(allEmails);
+    } catch (_) {
+        document.getElementById('table-loading').innerHTML =
+            '<p style="color:var(--text-muted); padding:20px;">Unable to load emails.</p>';
+    }
+}
+
+function renderTable(emails) {
+    const tbody = document.getElementById('emails-tbody');
+    document.getElementById('row-count').textContent = `${emails.length} email(s)`;
+
+    if (!emails.length) {
+        document.getElementById('table-wrapper').style.display = 'none';
+        document.getElementById('empty-state').style.display = 'block';
+        return;
+    }
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('table-wrapper').style.display = 'block';
+
+    tbody.innerHTML = emails.map(function (email) {
+        const tag      = email.tag || 'SKIP';
+        const tagClass = tag.toLowerCase();
+        const score    = email.relevance_score || 0;
+        const scoreCls = scoreClass(score);
+        const preview  = email.body_preview || '';
+        return `
+            <tr class="email-row" data-tag="${tag}" data-email-id="${email.id}"
+                onclick="window.location='/email/${email.id}'"
+                style="${email.is_read ? '' : 'font-weight:600;'}">
+                <td><span class="score-badge score-badge-${scoreCls}">${score}</span></td>
+                <td><span class="badge tag-badge-${tagClass}">${tag}</span></td>
+                <td style="font-size:12px; color:var(--text-secondary);">
+                    ${esc(email.sender_name || email.sender_email || '')}
+                </td>
+                <td>
+                    <div class="subject-preview">${esc(email.subject || '(no subject)')}</div>
+                    <div class="body-preview">${esc(preview)}</div>
+                </td>
+                <td style="font-size:12px; color:var(--text-muted); white-space:nowrap;">
+                    ${formatRelativeTime(email.received_at)}
+                </td>
+                <td onclick="event.stopPropagation();">
+                    <button class="btn btn-sm btn-ghost" onclick="archiveEmail('${email.id}')">Archive</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filterByTag(tag) {
+    activeTagFilter = tag;
+    document.querySelectorAll('.tag-filter-btn').forEach(function (b) { b.classList.remove('active'); });
+    const btn = document.querySelector(`.tag-filter-btn[data-tag="${tag}"]`);
+    if (btn) btn.classList.add('active');
+    applyFilters();
+}
+
+function applyFilters() {
+    const search     = (document.getElementById('search-input').value || '').toLowerCase();
+    const tagSelect  = document.getElementById('tag-filter').value;
+    const dateFrom   = document.getElementById('date-from').value;
+    const inboxSel   = document.getElementById('inbox-filter').value;
+    const effectiveTag = tagSelect || (activeTagFilter !== 'ALL' ? activeTagFilter : '');
+
+    const filtered = allEmails.filter(function (e) {
+        if (effectiveTag && e.tag !== effectiveTag) return false;
+        if (dateFrom && e.received_at < dateFrom) return false;
+        if (inboxSel === 'ceo' && !e.is_ceo_email) return false;
+        if (search) {
+            const haystack = [e.subject, e.sender_name, e.sender_email, e.body_preview].join(' ').toLowerCase();
+            if (!haystack.includes(search)) return false;
+        }
+        return true;
+    });
+    renderTable(filtered);
+}
+
+function resetFilters() {
+    document.getElementById('search-input').value  = '';
+    document.getElementById('tag-filter').value    = '';
+    document.getElementById('date-from').value     = '';
+    document.getElementById('inbox-filter').value  = '';
+    activeTagFilter = 'ALL';
+    document.querySelectorAll('.tag-filter-btn').forEach(function (b) { b.classList.remove('active'); });
+    const all = document.querySelector('.tag-filter-btn[data-tag="ALL"]');
+    if (all) all.classList.add('active');
+    renderTable(allEmails);
+}
+
+function esc(text) {
+    if (!text) return '';
+    return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

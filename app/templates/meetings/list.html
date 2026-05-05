@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+{% block title %}Meetings{% endblock %}
+{% block page_title %}Meetings{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn btn-sm btn-primary" onclick="openModal('upload-modal')">
+    ⬆ Upload Recording
+</button>
+{% endblock %}
+
+{% block content %}
+
+<!-- ══ Filter Controls ══════════════════════ -->
+<div class="card" style="margin-bottom:16px;">
+    <div class="card-body" style="padding:12px 16px;">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+
+            <div class="search-bar" style="flex:1; min-width:220px;">
+                <span style="color:var(--text-muted);">🔍</span>
+                <input type="text" id="search-input" placeholder="Search meetings…"
+                       oninput="debounce(applyFilters, 300)()">
+            </div>
+
+            <!-- Type filter buttons -->
+            <div style="display:flex; gap:6px; flex-wrap:wrap;" id="type-filter-bar">
+                <button class="tag-filter-btn active" data-type="ALL" onclick="setTypeFilter('ALL')">All</button>
+                <button class="tag-filter-btn" data-type="INTERNAL"   onclick="setTypeFilter('INTERNAL')">Internal</button>
+                <button class="tag-filter-btn" data-type="STRATEGIST" onclick="setTypeFilter('STRATEGIST')">Strategist</button>
+                <button class="tag-filter-btn" data-type="CLIENT"     onclick="setTypeFilter('CLIENT')">Client</button>
+                <button class="tag-filter-btn" data-type="EARNINGS"   onclick="setTypeFilter('EARNINGS')">Earnings</button>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:12px; color:var(--text-muted);">From:</label>
+                <input type="date" class="form-control" id="date-from" onchange="applyFilters()"
+                       style="width:140px; padding:6px 10px;">
+            </div>
+
+            <button class="btn btn-sm btn-ghost" onclick="resetFilters()">Reset</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ Meeting Cards Grid ═══════════════════ -->
+<div class="loading-overlay" id="cards-loading">
+    <div class="loading-spinner"></div> Loading meetings…
+</div>
+
+<div id="meetings-grid" style="display:none;">
+    <!-- Cards injected by JS -->
+</div>
+
+<div class="empty-state" id="empty-state" style="display:none;">
+    <div class="empty-state-icon">🎤</div>
+    <div class="empty-state-title">No meetings found</div>
+    <div class="empty-state-desc">Upload a recording to get started, or adjust your filters.</div>
+</div>
+
+<!-- ══ Upload Modal ══════════════════════════ -->
+<div class="modal" id="upload-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-card">
+        <div class="modal-header">
+            <span class="modal-title">⬆ Upload Meeting Recording</span>
+            <button class="modal-close" onclick="closeModal('upload-modal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="upload-form">
+                <div class="form-group">
+                    <label>Meeting Title *</label>
+                    <input type="text" class="form-control" id="upload-title" placeholder="e.g. Goldman Sachs Rates Call">
+                </div>
+                <div class="form-group">
+                    <label>Meeting Type *</label>
+                    <select class="form-control" id="upload-type">
+                        <option value="INTERNAL">Internal</option>
+                        <option value="STRATEGIST">Strategist</option>
+                        <option value="CLIENT">Client</option>
+                        <option value="EARNINGS">Earnings</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" class="form-control" id="upload-date">
+                </div>
+                <div class="form-group">
+                    <label>Attendees (comma-separated)</label>
+                    <input type="text" class="form-control" id="upload-attendees" placeholder="John Smith, Jane Doe">
+                </div>
+                <div class="form-group">
+                    <label>Audio / Video File</label>
+                    <div class="drop-zone" id="upload-drop-zone" onclick="document.getElementById('upload-file').click()">
+                        <div class="drop-zone-icon">🎵</div>
+                        <div class="drop-zone-text" id="drop-zone-label">Click or drag to upload</div>
+                        <div class="drop-zone-sub">MP3, MP4, M4A, WAV, WEBM — max 500 MB</div>
+                    </div>
+                    <input type="file" id="upload-file" style="display:none;"
+                           accept=".mp3,.mp4,.m4a,.wav,.webm"
+                           onchange="handleFileSelect(this)">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('upload-modal')">Cancel</button>
+            <button class="btn btn-primary" id="upload-submit-btn" onclick="submitUpload()">Upload &amp; Transcribe</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.meetings-grid-inner {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.meeting-card {
+    background: white;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.15s;
+}
+.meeting-card:hover { box-shadow: var(--shadow-md); }
+
+.meeting-card-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.meeting-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--navy);
+    flex: 1;
+}
+
+.meeting-card-body {
+    padding: 12px 16px;
+    flex: 1;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.meeting-card-footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.badge-type-internal   { background: #eff6ff; color: #2563eb; }
+.badge-type-strategist { background: #f0fdf4; color: #16a34a; }
+.badge-type-client     { background: #dbeafe; color: var(--tag-client); }
+.badge-type-earnings   { background: #fef9c3; color: #b45309; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allMeetings = [];
+let activeType  = 'ALL';
+
+document.addEventListener('DOMContentLoaded', async function () {
+    // Pre-fill date
+    const d = document.getElementById('upload-date');
+    if (d) d.value = new Date().toISOString().slice(0, 10);
+
+    await loadMeetings();
+    setupDragDrop();
+});
+
+async function loadMeetings() {
+    try {
+        allMeetings = await argoFetch('/api/v1/meetings/?limit=100');
+        document.getElementById('cards-loading').style.display = 'none';
+        renderCards(allMeetings);
+    } catch (_) {
+        document.getElementById('cards-loading').innerHTML =
+            '<p style="color:var(--text-muted); padding:20px;">Unable to load meetings.</p>';
+    }
+}
+
+function renderCards(meetings) {
+    const grid = document.getElementById('meetings-grid');
+    if (!meetings.length) {
+        grid.style.display = 'none';
+        document.getElementById('empty-state').style.display = 'block';
+        return;
+    }
+    document.getElementById('empty-state').style.display = 'none';
+    grid.style.display = 'block';
+
+    grid.innerHTML = `<div class="meetings-grid-inner">${meetings.map(function (m) {
+        const typeClass = (m.meeting_type || 'internal').toLowerCase();
+        const statusCls = { complete:'complete', pending:'pending', error:'error' }[m.status] || 'pending';
+        const date      = m.meeting_date ? new Date(m.meeting_date).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '—';
+        const attendees = Array.isArray(m.attendees) ? m.attendees.slice(0, 3).join(', ') + (m.attendees.length > 3 ? ` +${m.attendees.length - 3}` : '') : '';
+        const summary   = (m.summary || '').slice(0, 120);
+
+        return `
+            <div class="meeting-card">
+                <div class="meeting-card-header">
+                    <div class="meeting-card-title">${esc(m.title || 'Untitled Meeting')}</div>
+                    <span class="badge badge-type-${typeClass}">${m.meeting_type || 'INTERNAL'}</span>
+                </div>
+                <div class="meeting-card-body">
+                    <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:8px;">
+                        <span>📅 ${date}</span>
+                        ${attendees ? `<span>👥 ${esc(attendees)}</span>` : ''}
+                        ${m.duration_minutes ? `<span>⏱ ${m.duration_minutes} min</span>` : ''}
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                        <span class="badge badge-${statusCls}">${(m.status || 'PENDING').toUpperCase()}</span>
+                    </div>
+                    ${summary ? `<p style="font-size:12px; color:var(--text-secondary); line-height:1.5;">${esc(summary)}${summary.length >= 120 ? '…' : ''}</p>` : ''}
+                </div>
+                <div class="meeting-card-footer">
+                    <a href="/meetings/${m.id}" class="btn btn-sm btn-primary">View →</a>
+                </div>
+            </div>
+        `;
+    }).join('')}</div>`;
+}
+
+function setTypeFilter(type) {
+    activeType = type;
+    document.querySelectorAll('#type-filter-bar .tag-filter-btn').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.type === type);
+    });
+    applyFilters();
+}
+
+function applyFilters() {
+    const q    = (document.getElementById('search-input').value || '').toLowerCase();
+    const from = document.getElementById('date-from').value;
+
+    const filtered = allMeetings.filter(function (m) {
+        if (activeType !== 'ALL' && m.meeting_type !== activeType) return false;
+        if (from && m.meeting_date && m.meeting_date < from) return false;
+        if (q) {
+            const hay = [m.title, m.summary, (m.attendees || []).join(' ')].join(' ').toLowerCase();
+            if (!hay.includes(q)) return false;
+        }
+        return true;
+    });
+    renderCards(filtered);
+}
+
+function resetFilters() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('date-from').value    = '';
+    setTypeFilter('ALL');
+    renderCards(allMeetings);
+}
+
+function handleFileSelect(input) {
+    if (input.files && input.files[0]) {
+        document.getElementById('drop-zone-label').textContent = input.files[0].name;
+    }
+}
+
+function setupDragDrop() {
+    const zone = document.getElementById('upload-drop-zone');
+    if (!zone) return;
+    zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', function () { zone.classList.remove('drag-over'); });
+    zone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        zone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            document.getElementById('upload-file').files = e.dataTransfer.files;
+            document.getElementById('drop-zone-label').textContent = file.name;
+        }
+    });
+}
+
+async function submitUpload() {
+    const title     = document.getElementById('upload-title').value.trim();
+    const type      = document.getElementById('upload-type').value;
+    const date      = document.getElementById('upload-date').value;
+    const attendees = document.getElementById('upload-attendees').value;
+    const fileInput = document.getElementById('upload-file');
+
+    if (!title) { showToast('Please enter a meeting title', 'warning'); return; }
+    if (!fileInput.files || !fileInput.files[0]) { showToast('Please select a file', 'warning'); return; }
+
+    const btn = document.getElementById('upload-submit-btn');
+    btn.disabled = true; btn.textContent = 'Uploading…';
+
+    const fd = new FormData();
+    fd.append('file', fileInput.files[0]);
+    fd.append('title', title);
+    fd.append('meeting_type', type);
+    fd.append('meeting_date', date);
+    fd.append('attendees', attendees);
+
+    try {
+        const result = await fetch('/api/v1/meetings/upload', { method: 'POST', body: fd });
+        if (!result.ok) throw new Error(`Upload failed: ${result.status}`);
+        const data = await result.json();
+        closeModal('upload-modal');
+        showToast('Upload successful — transcription queued', 'success');
+        setTimeout(function () { window.location = `/meetings/${data.id}`; }, 1000);
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        btn.disabled = false; btn.textContent = 'Upload & Transcribe';
+    }
+}
+
+function esc(t) {
+    if (!t) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}
