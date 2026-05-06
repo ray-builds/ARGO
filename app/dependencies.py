@@ -87,6 +87,14 @@ async def require_auth(request: Request):
     return user_data
 
 
+async def get_current_user_optional(request: Request) -> dict | None:
+    """Like get_current_user but returns None instead of raising when unauthenticated."""
+    user_data: dict | None = request.session.get("user")
+    if not user_data or not user_data.get("user_id"):
+        return None
+    return user_data
+
+
 # ── Typed aliases ─────────────────────────────────────────────────────────────
 
 CurrentUser = Annotated[dict, Depends(require_auth)]
