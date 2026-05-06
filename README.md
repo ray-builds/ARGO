@@ -7,43 +7,44 @@ It centralises intelligence across email, markets, meetings, research, portfolio
 
 ## Modules
 
-| # | Module | Description |
-|---|--------|-------------|
-| 1 | **Email Intelligence** | Monitors team mailboxes via Microsoft Graph, scores relevance, flags CEO mail, and surfaces AI-generated highlights |
-| 2 | **Overnight Market Summary** | Generates a pre-open briefing covering overnight emails, market moves, and macro news; delivers via WhatsApp and email |
-| 3 | **Meeting Intelligence** | Accepts audio uploads, transcribes, and produces structured summaries with decisions and action items |
-| 4 | **Research Data Lake** | Ingests PDF/text research from brokers and internal sources, chunks and embeds for semantic search |
-| 5 | **Portfolio Intelligence** | Tracks positions, runs scenario analysis, and generates trade-idea commentary using current macro views |
-| 6 | **Sales & Client Intelligence** | CRM layer for investor relations — tracks interactions, surfaces follow-up priorities, and logs engagement history |
-| 7 | **Research Intelligence** | Cross-references broker research against internal views, rates conviction levels, and tracks supply vs thesis |
-| 8 | **Economic Data Intelligence** | Monitors economic calendar releases, detects surprises, and dispatches AI-powered market-impact analysis |
-| 9 | **AI Assistant** | Context-aware chat assistant with module routing, tool use, and persistent conversation history |
+| #   | Module                          | Description                                                                                                            |
+| --- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Email Intelligence**          | Monitors team mailboxes via Microsoft Graph, scores relevance, flags CEO mail, and surfaces AI-generated highlights    |
+| 2   | **Overnight Market Summary**    | Generates a pre-open briefing covering overnight emails, market moves, and macro news; delivers via WhatsApp and email |
+| 3   | **Meeting Intelligence**        | Accepts audio uploads, transcribes, and produces structured summaries with decisions and action items                  |
+| 4   | **Research Data Lake**          | Ingests PDF/text research from brokers and internal sources, chunks and embeds for semantic search                     |
+| 5   | **Portfolio Intelligence**      | Tracks positions, runs scenario analysis, and generates trade-idea commentary using current macro views                |
+| 6   | **Sales & Client Intelligence** | CRM layer for investor relations — tracks interactions, surfaces follow-up priorities, and logs engagement history     |
+| 7   | **Research Intelligence**       | Cross-references broker research against internal views, rates conviction levels, and tracks supply vs thesis          |
+| 8   | **Economic Data Intelligence**  | Monitors economic calendar releases, detects surprises, and dispatches AI-powered market-impact analysis               |
+| 9   | **AI Assistant**                | Context-aware chat assistant with module routing, tool use, and persistent conversation history                        |
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| API framework | Python 3.11 + FastAPI |
-| AI model | Anthropic Claude API (Haiku + Sonnet) |
-| Auth / Email / Calendar | Microsoft Graph API via MSAL |
-| Templates | Jinja2 |
-| Task scheduling | APScheduler |
-| WhatsApp delivery | Twilio WhatsApp API |
-| News search | Serper API |
-| Database (dev) | SQLite via aiosqlite |
-| Database (prod) | PostgreSQL 16 + pgvector |
-| ORM / migrations | SQLAlchemy 2 async + Alembic |
-| Server | Uvicorn |
-| Containerisation | Docker + Docker Compose |
-| CI/CD | GitHub Actions → AWS ECS (Fargate) |
+| Layer                   | Technology                            |
+| ----------------------- | ------------------------------------- |
+| API framework           | Python 3.11 + FastAPI                 |
+| AI model                | Anthropic Claude API (Haiku + Sonnet) |
+| Auth / Email / Calendar | Microsoft Graph API via MSAL          |
+| Templates               | Jinja2                                |
+| Task scheduling         | APScheduler                           |
+| WhatsApp delivery       | Twilio WhatsApp API                   |
+| News search             | Serper API                            |
+| Database (dev)          | SQLite via aiosqlite                  |
+| Database (prod)         | PostgreSQL 16 + pgvector              |
+| ORM / migrations        | SQLAlchemy 2 async + Alembic          |
+| Server                  | Uvicorn                               |
+| Containerisation        | Docker + Docker Compose               |
+| CI/CD                   | GitHub Actions → AWS ECS (Fargate)    |
 
 ---
 
 ## Setup (Local Development)
 
 ### Prerequisites
+
 - Python 3.11+
 - Git
 - (Optional for full stack) Docker Desktop
@@ -51,12 +52,14 @@ It centralises intelligence across email, markets, meetings, research, portfolio
 ### Step-by-step
 
 **1. Clone the repository**
+
 ```bash
 git clone https://github.com/your-org/argo.git
 cd argo
 ```
 
 **2. Create and activate a virtual environment**
+
 ```bash
 python -m venv .venv
 
@@ -68,22 +71,26 @@ source .venv/bin/activate
 ```
 
 **3. Install dependencies**
+
 ```bash
 pip install -r requirements.txt -r requirements-dev.txt
 ```
 
 **4. Configure environment variables**
+
 ```bash
 cp .env.example .env
 # Open .env and fill in all required values (see table below)
 ```
 
 **5. Run database migrations**
+
 ```bash
 alembic upgrade head
 ```
 
 **6. Start the development server**
+
 ```bash
 uvicorn app.main:app --reload
 ```
@@ -100,6 +107,7 @@ pytest --cov=app --cov-report=term-missing
 ```
 
 Coverage must pass 80 % to succeed. To generate an HTML report:
+
 ```bash
 pytest --cov=app --cov-report=html
 open htmlcov/index.html
@@ -116,6 +124,7 @@ docker-compose up --build
 ```
 
 To run migrations inside the container after first boot:
+
 ```bash
 docker-compose exec app alembic upgrade head
 ```
@@ -124,31 +133,31 @@ docker-compose exec app alembic upgrade head
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `APP_ENV` | yes | `development` / `production` / `test` |
-| `SECRET_KEY` | yes | Random 32-byte hex string — used for session signing |
-| `DATABASE_URL` | yes | SQLAlchemy async DSN (sqlite+aiosqlite or postgresql+asyncpg) |
-| `ANTHROPIC_API_KEY` | yes | Anthropic API key |
-| `CLAUDE_HAIKU_MODEL` | yes | Model ID for fast/cheap calls (e.g. `claude-haiku-4-5`) |
-| `CLAUDE_SONNET_MODEL` | yes | Model ID for high-quality calls (e.g. `claude-sonnet-4-5`) |
-| `AZURE_TENANT_ID` | yes | Azure AD tenant GUID |
-| `AZURE_CLIENT_ID` | yes | Azure AD app registration client ID |
-| `AZURE_CLIENT_SECRET` | yes | Azure AD client secret |
-| `AZURE_REDIRECT_URI` | yes | OAuth redirect URI (must match app registration) |
-| `GRAPH_SCOPES` | yes | Space-separated Microsoft Graph permission scopes |
-| `CEO_EMAIL` | yes | CEO email address — triggers priority flagging |
-| `TEAM_EMAILS` | yes | Comma-separated list of team mailboxes to monitor |
-| `TWILIO_ACCOUNT_SID` | no | Twilio account SID (required for WhatsApp delivery) |
-| `TWILIO_AUTH_TOKEN` | no | Twilio auth token |
-| `TWILIO_WHATSAPP_FROM` | no | Twilio sandbox/production WhatsApp number |
-| `PM_WHATSAPP_NUMBER` | no | Portfolio manager's WhatsApp number for overnight summary |
-| `SERPER_API_KEY` | no | Serper.dev API key for news search in overnight summary |
-| `OVERNIGHT_SUMMARY_CRON` | no | APScheduler cron expression for summary generation |
-| `OVERNIGHT_SUMMARY_TIMEZONE` | no | Timezone for the overnight summary scheduler |
-| `AWS_REGION` | no | AWS region for ECR/ECS deployment |
-| `ECR_REGISTRY` | no | AWS ECR registry URL |
-| `ECR_REPOSITORY` | no | ECR repository name |
+| Variable                     | Required | Description                                                   |
+| ---------------------------- | -------- | ------------------------------------------------------------- |
+| `APP_ENV`                    | yes      | `development` / `production` / `test`                         |
+| `SECRET_KEY`                 | yes      | Random 32-byte hex string — used for session signing          |
+| `DATABASE_URL`               | yes      | SQLAlchemy async DSN (sqlite+aiosqlite or postgresql+asyncpg) |
+| `ANTHROPIC_API_KEY`          | yes      | Anthropic API key                                             |
+| `CLAUDE_HAIKU_MODEL`         | yes      | Model ID for fast/cheap calls (e.g. `claude-haiku-4-5`)       |
+| `CLAUDE_SONNET_MODEL`        | yes      | Model ID for high-quality calls (e.g. `claude-sonnet-4-5`)    |
+| `AZURE_TENANT_ID`            | yes      | Azure AD tenant GUID                                          |
+| `AZURE_CLIENT_ID`            | yes      | Azure AD app registration client ID                           |
+| `AZURE_CLIENT_SECRET`        | yes      | Azure AD client secret                                        |
+| `AZURE_REDIRECT_URI`         | yes      | OAuth redirect URI (must match app registration)              |
+| `GRAPH_SCOPES`               | yes      | Space-separated Microsoft Graph permission scopes             |
+| `CEO_EMAIL`                  | yes      | CEO email address — triggers priority flagging                |
+| `TEAM_EMAILS`                | yes      | Comma-separated list of team mailboxes to monitor             |
+| `TWILIO_ACCOUNT_SID`         | no       | Twilio account SID (required for WhatsApp delivery)           |
+| `TWILIO_AUTH_TOKEN`          | no       | Twilio auth token                                             |
+| `TWILIO_WHATSAPP_FROM`       | no       | Twilio sandbox/production WhatsApp number                     |
+| `PM_WHATSAPP_NUMBER`         | no       | Portfolio manager's WhatsApp number for overnight summary     |
+| `SERPER_API_KEY`             | no       | Serper.dev API key for news search in overnight summary       |
+| `OVERNIGHT_SUMMARY_CRON`     | no       | APScheduler cron expression for summary generation            |
+| `OVERNIGHT_SUMMARY_TIMEZONE` | no       | Timezone for the overnight summary scheduler                  |
+| `AWS_REGION`                 | no       | AWS region for ECR/ECS deployment                             |
+| `ECR_REGISTRY`               | no       | AWS ECR registry URL                                          |
+| `ECR_REPOSITORY`             | no       | ECR repository name                                           |
 
 ---
 
@@ -189,6 +198,7 @@ argo/
 - **Deploy** (`deploy.yml`): triggered on push to `main` — builds Docker image, pushes to AWS ECR, runs Alembic migrations via ECS task, deploys updated task definition to ECS Fargate.
 
 Required GitHub Actions secrets for deployment:
+
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 

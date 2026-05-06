@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Email Detail{% endblock %}
+{% block page_title %}Email{% endblock %}
+
+{% block topbar_actions %}
+<a href="/email" class="btn btn-sm btn-ghost">← Back</a>
+{% endblock %}
+
+{% block content %}
+<div id="loading">
+    <div class="loading-overlay">
+        <div class="loading-spinner"></div> Loading email…
+    </div>
+</div>
+<div id="email-content" style="display:none;"></div>
+<div id="not-found" style="display:none;" class="empty-state">
+    <div class="empty-state-icon">📭</div>
+    <div class="empty-state-title">Email not found</div>
+    <div class="empty-state-desc"><a href="/email">Back to inbox</a></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const emailId = '{{ email_id }}';
+
+document.addEventListener('DOMContentLoaded', async function () {
+    try {
+        const email = await argoFetch('/api/v1/emails/inbox?limit=1');
+        // Fetch specific email via ID — using the detail endpoint
+        const e = await fetchEmail(emailId);
+        document.getElementById('loading').style.display = 'none';
+        renderEmail(e);
+        document.getElementById('email-content').style.display = 'block';
+    } catch (_) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('not-found').style.display = 'flex';
+    }
+});
+
+async function fetchEmail(id) {
+    // Try to find in inbox first, otherwise 404
+    const emails = await argoFetch('/api/v1/emails/inbox?limit=200');
+    const found = emails.find(function (e) { return e.id === id; });
+    if (!found) throw new Error('Not found');
+    return found;
+}
+
+function renderEmail(e) {
+    const tag = e.tag || 'SKIP';
+    const tagClass = tag.toLowerCase();
+    const score = e.relevance_score || 0;
+    const scoreCls = score >= 90 ? 'critical' : score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
+
+    let html = '<div class="card">';
+    html += '<div class="card-header">';
+    html += '<div style="display:flex;align-items:center;gap:10px;">';
+    html += '<span class="badge tag-badge-' + tagClass + '">' + esc(tag) + '</span>';
+    html += '<span class="score-badge score-badge-' + scoreCls + '">' + score + '</span>';
+    html += '</div>';
+    html += '<button class="btn btn-sm btn-ghost" onclick="archiveThis()">Archive</button>';
+    html += '</div>';
+    html += '<div class="card-body" style="padding:20px;">';
+    html += '<div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:10px;">' + esc(e.subject || '(no subject)') + '</div>';
+    html += '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">From: <strong>' + esc(e.sender_name || e.sender_email || '') + '</strong>';
+    if (e.sender_name && e.sender_email) html += ' <span style="color:var(--text-muted);">&lt;' + esc(e.sender_email) + '&gt;</span>';
+    html += '</div>';
+    html += '<div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Received: ' + (e.received_at ? new Date(e.received_at).toLocaleString('en-GB') : '') + '</div>';
+
+    if (e.ai_summary) {
+        html += '<div style="background:#f0f7ff;border-left:3px solid var(--mid-blue);padding:10px 14px;border-radius:0 6px 6px 0;margin-bottom:16px;">';
+        html += '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:4px;">AI Summary</div>';
+        html += '<div style="font-size:13px;color:var(--text-primary);">' + esc(e.ai_summary) + '</div>';
+        if (e.action_required) {
+            html += '<div style="font-size:12px;color:var(--cyan);margin-top:6px;">⚡ ' + esc(e.action_required) + '</div>';
+        }
+        html += '</div>';
+    }
+
+    if (e.body_preview) {
+        html += '<div style="font-size:13px;line-height:1.7;color:var(--text-primary);border:1px solid var(--border);border-radius:6px;padding:14px;">' + esc(e.body_preview) + '</div>';
+    }
+
+    html += '</div></div>';
+    document.getElementById('email-content').innerHTML = html;
+}
+
+async function archiveThis() {
+    try {
+        await argoFetch('/api/v1/emails/archive', {
+            method: 'POST',
+            body: JSON.stringify({ email_ids: [emailId] }),
+        });
+        showToast('Email archived', 'success');
+        setTimeout(function () { window.location = '/email'; }, 800);
+    } catch (_) {
+        showToast('Archive failed', 'error');
+    }
+}
+
+function esc(t) {
+    if (!t) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

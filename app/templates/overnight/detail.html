@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Overnight Briefing{% endblock %}
+{% block page_title %}Overnight Briefing{% endblock %}
+
+{% block topbar_actions %}
+<a href="/overnight" class="btn btn-sm btn-ghost">← Back</a>
+{% if user and user.role in ('dev_lead', 'ceo') %}
+<button class="btn btn-sm btn-secondary" onclick="reDeliver()">
+    📤 Re-deliver
+</button>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div id="content-area">
+    <div class="loading-overlay" id="loading">
+        <div class="loading-spinner"></div> Loading briefing…
+    </div>
+    <div id="briefing-content" style="display:none;"></div>
+    <div id="not-found" style="display:none;" class="empty-state">
+        <div class="empty-state-icon">🌙</div>
+        <div class="empty-state-title">Briefing not found</div>
+        <div class="empty-state-desc"><a href="/overnight">Back to all summaries</a></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const summaryId = '{{ summary_id }}';
+
+document.addEventListener('DOMContentLoaded', async function () {
+    try {
+        const s = await argoFetch('/api/v1/overnight/summaries/' + summaryId);
+        document.getElementById('loading').style.display = 'none';
+        renderBriefing(s);
+        document.getElementById('briefing-content').style.display = 'block';
+    } catch (_) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('not-found').style.display = 'flex';
+    }
+});
+
+function renderBriefing(s) {
+    const dateStr = formatDate(s.summary_date);
+    const waBadge = s.whatsapp_delivered
+        ? '<span class="badge-delivered">✅ WhatsApp</span>'
+        : '<span class="badge-failed">✗ WhatsApp</span>';
+    const emlBadge = s.email_delivered
+        ? '<span class="badge-delivered">✅ Email</span>'
+        : '<span class="badge-pending">— Email</span>';
+
+    let html = '<div class="card">';
+    html += '<div style="background:linear-gradient(135deg,#010042,#1D3569);color:white;padding:20px 24px;border-radius:8px 8px 0 0;">';
+    html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">';
+    html += '<div>';
+    html += '<div style="font-size:18px;font-weight:700;color:white;margin-bottom:4px;">🌅 Morning Briefing — ' + esc(dateStr) + '</div>';
+    html += '<div style="font-size:12px;color:rgba(255,255,255,0.6);">Coverage: ' + esc(s.coverage_start ? s.coverage_start.slice(0,16).replace('T',' ') : '') + ' → ' + esc(s.coverage_end ? s.coverage_end.slice(0,16).replace('T',' ') : '') + ' UTC</div>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px;flex-shrink:0;">' + waBadge + ' ' + emlBadge + '</div>';
+    html += '</div></div>';
+
+    html += '<div class="card-body" style="padding:24px;">';
+
+    // Executive summary
+    html += section_header('📊 Executive Summary');
+    html += '<p style="font-size:14px;line-height:1.75;color:var(--text-primary);margin-bottom:20px;">' + esc(s.executive_summary || '') + '</p>';
+
+    // Key emails
+    const emails = s.email_section || [];
+    if (emails.length > 0) {
+        html += section_header('📧 Key Emails');
+        emails.forEach(function(em) {
+            const pri = em.priority === 'HIGH'
+                ? '<span style="background:#fef2f2;color:#dc2626;font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;">HIGH</span>'
+                : '<span style="background:#fffbeb;color:#d97706;font-size:10px;padding:2px 7px;border-radius:8px;font-weight:700;">MED</span>';
+            html += '<div style="border-left:3px solid var(--mid-blue);padding:8px 12px;margin-bottom:8px;background:var(--light-bg);border-radius:0 6px 6px 0;">';
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">' + pri;
+            html += '<span style="font-size:13px;font-weight:600;">' + esc(em.sender || '') + '</span></div>';
+            html += '<div style="font-size:13px;color:var(--text-secondary);">' + esc(em.subject || '') + '</div>';
+            if (em.action_required) {
+                html += '<div style="font-size:12px;color:var(--cyan);margin-top:4px;">⚡ ' + esc(em.action_required) + '</div>';
+            }
+            html += '</div>';
+        });
+        html += '<div style="margin-bottom:20px;"></div>';
+    }
+
+    // Market moves
+    const moves = s.market_moves_section || [];
+    if (moves.length > 0) {
+        html += section_header('📈 Market Moves');
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px;">';
+        moves.forEach(function(mv) {
+            html += '<div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;background:white;">';
+            html += '<div style="font-size:15px;font-weight:700;color:var(--navy);">' + esc(mv.asset || '') + '</div>';
+            html += '<div style="font-size:13px;color:var(--mid-blue);margin-top:2px;">' + esc(mv.move || '') + ' <span style="color:var(--text-muted);font-weight:400;">(' + esc(mv.magnitude || '') + ')</span></div>';
+            if (mv.why_it_matters) {
+                html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;line-height:1.5;">' + esc(mv.why_it_matters) + '</div>';
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // News
+    const news = s.news_section || [];
+    if (news.length > 0) {
+        html += section_header('📰 Key News');
+        html += '<div style="margin-bottom:20px;">';
+        news.forEach(function(n) {
+            html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);">';
+            html += '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">• ' + esc(n.headline || '') + '</div>';
+            if (n.significance) {
+                html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;margin-left:12px;">' + esc(n.significance) + '</div>';
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+
+    // Macro watch
+    if (s.macro_section) {
+        html += section_header('🔭 Macro Watch');
+        html += '<div style="font-size:13px;line-height:1.75;color:var(--text-primary);background:var(--light-bg);padding:14px 16px;border-radius:6px;margin-bottom:20px;">' + esc(s.macro_section) + '</div>';
+    }
+
+    // Full briefing text (collapsible)
+    if (s.full_briefing_text) {
+        html += '<div style="border-top:1px solid var(--border);padding-top:16px;">';
+        html += '<button class="btn btn-sm btn-ghost" onclick="toggleRaw()" id="raw-btn">Show raw WhatsApp text ▼</button>';
+        html += '<div id="raw-text" style="display:none;margin-top:12px;">';
+        html += '<pre style="font-family:monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;background:var(--light-bg);padding:16px;border-radius:6px;">' + esc(s.full_briefing_text) + '</pre>';
+        html += '</div></div>';
+    }
+
+    html += '</div></div>'; // card-body + card
+    document.getElementById('briefing-content').innerHTML = html;
+}
+
+function section_header(title) {
+    return '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-muted);margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid var(--border);">' + title + '</div>';
+}
+
+function toggleRaw() {
+    const el = document.getElementById('raw-text');
+    const btn = document.getElementById('raw-btn');
+    if (el.style.display === 'none') {
+        el.style.display = 'block';
+        btn.textContent = 'Hide raw WhatsApp text ▲';
+    } else {
+        el.style.display = 'none';
+        btn.textContent = 'Show raw WhatsApp text ▼';
+    }
+}
+
+async function reDeliver() {
+    if (!confirm('Re-deliver this summary via WhatsApp?')) return;
+    try {
+        await argoFetch('/api/v1/overnight/deliver/' + summaryId, { method: 'POST' });
+        showToast('Summary re-delivered', 'success');
+    } catch (_) {
+        showToast('Delivery failed — check logs', 'error');
+    }
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const d = new Date(dateStr + 'T00:00:00');
+        return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    } catch (_) { return dateStr; }
+}
+
+function esc(t) {
+    if (!t) return '';
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+<style>
+.badge-delivered { background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600; }
+.badge-failed    { background:#fef2f2;color:#dc2626;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600; }
+.badge-pending   { background:#f1f5f9;color:#64748b;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600; }
+</style>
+{% endblock %}
