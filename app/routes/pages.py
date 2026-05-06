@@ -199,7 +199,7 @@ async def datalake_page(
         return redir
 
     return templates.TemplateResponse(
-        "research_lake/list.html",
+        "research_lake/search.html",
         {
             "request": request,
             "user": current_user,

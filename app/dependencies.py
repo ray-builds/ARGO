@@ -6,6 +6,7 @@ from typing import Annotated, AsyncGenerator
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from loguru import logger
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
@@ -26,52 +27,43 @@ def _is_api_route(request: Request) -> bool:
     return request.url.path.startswith("/api/")
 
 
-async def get_current_user(request: Request) -> dict:
-    """Read the authenticated user dict from the session.
+async def _load_user(user_id: str):
+    """Load the User ORM object from the database by ID."""
+    from app.models.user import User as UserModel
+    async with get_db_session() as db:
+        result = await db.execute(select(UserModel).where(UserModel.id == user_id))
+        return result.scalar_one_or_none()
 
-    Returns the full user dict stored in ``request.session["user"]``.
 
-    For API routes (paths starting with ``/api/``): raises HTTP 401.
-    For HTML routes: raises HTTP 401 (caller may wish to redirect instead;
-    use ``require_auth`` for auto-redirect behaviour).
-
-    Returns:
-        dict with at minimum: user_id, email, display_name, role, access_token.
+async def get_current_user(request: Request):
+    """Load the authenticated User ORM object from the session + database.
 
     Raises:
-        HTTPException(401): if the session does not contain a valid user.
+        HTTPException(401): if the session is missing or the user is not found.
     """
     user_data: dict | None = request.session.get("user")
 
-    if not user_data:
+    if not user_data or not user_data.get("user_id"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated. Please log in.",
         )
 
-    if not user_data.get("user_id"):
+    user = await _load_user(user_data["user_id"])
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid session. Please log in again.",
+            detail="User not found. Please log in again.",
         )
 
-    return user_data
+    return user
 
 
 async def require_auth(request: Request):
-    """Auth dependency that returns 401 JSON for API routes and redirects for HTML.
-
-    - Path starts with ``/api/`` → returns JSON 401.
-    - All other paths → returns ``RedirectResponse("/login")``.
-
-    Use this as the dependency for page endpoints where a redirect is
-    friendlier than a bare 401.
+    """Auth dependency — redirects HTML routes to /login, returns 401 for API routes.
 
     Returns:
-        User dict (same shape as ``get_current_user``).
-
-    Raises:
-        HTTPException(401): for API routes when not authenticated.
+        User ORM object.
     """
     user_data: dict | None = request.session.get("user")
 
@@ -81,20 +73,58 @@ async def require_auth(request: Request):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated.",
             )
-        # HTML route — redirect to login
         return RedirectResponse(url="/login", status_code=302)
 
-    return user_data
+    user = await _load_user(user_data["user_id"])
+    if not user:
+        if _is_api_route(request):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found.",
+            )
+        return RedirectResponse(url="/login", status_code=302)
+
+    return user
 
 
-async def get_current_user_optional(request: Request) -> dict | None:
+async def get_current_user_optional(request: Request):
     """Like get_current_user but returns None instead of raising when unauthenticated."""
     user_data: dict | None = request.session.get("user")
     if not user_data or not user_data.get("user_id"):
         return None
-    return user_data
+    return await _load_user(user_data["user_id"])
+
+
+async def require_dev_lead(request: Request):
+    """Auth dependency that requires the user to have the dev_lead or ceo role.
+
+    Raises:
+        HTTPException(403): if authenticated but lacks the required role.
+    """
+    user = await get_current_user(request)
+    if user.role not in ("dev_lead", "ceo"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Dev lead or CEO role required.",
+        )
+    return user
+
+
+async def get_access_token(request: Request) -> str:
+    """Return the Microsoft Graph access token for the current user.
+
+    Raises:
+        HTTPException(401): if not authenticated or token is missing.
+    """
+    user = await get_current_user(request)
+    if not user.graph_access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Microsoft Graph token missing. Please log in again.",
+        )
+    return user.graph_access_token
 
 
 # ── Typed aliases ─────────────────────────────────────────────────────────────
 
-CurrentUser = Annotated[dict, Depends(require_auth)]
+CurrentUser = Annotated[object, Depends(require_auth)]

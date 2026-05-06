@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // ── CEO Emails ────────────────────────────
     try {
-        const emails = await argoFetch('/api/v1/email/ceo-inbox?limit=12');
+        const emails = await argoFetch('/api/v1/emails/ceo-boxes?limit=12');
         renderCeoEmails(emails);
         document.getElementById('urgent-count').textContent =
             emails.filter(function (e) { return e.tag === 'URGENT'; }).length;

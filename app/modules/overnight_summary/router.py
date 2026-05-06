@@ -107,6 +107,23 @@ async def deliver_summary(
     return {"delivered": delivered, "summary_id": summary_id}
 
 
+@router.get("/latest", response_class=JSONResponse)
+async def get_latest_summary(
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Return the most recent overnight summary."""
+    from app.core.database import get_db_session
+    from app.modules.overnight_summary.service import OvernightSummaryService
+
+    async with get_db_session() as db:
+        service = OvernightSummaryService(db)
+        summary = await service.get_latest_summary()
+        if summary is None:
+            raise HTTPException(status_code=404, detail="No summaries found")
+
+    return _summary_to_dict(summary, full=True)
+
+
 @router.get("/status", response_class=JSONResponse)
 async def scheduler_status(
     current_user: User = Depends(get_current_user),
