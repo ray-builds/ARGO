@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/test_auto_sync.py -x -q)",
+      "Bash(python -m pytest tests/test_auto_sync.py -q)",
+      "Bash(python -m pytest -q)"
+    ]
+  }
+}

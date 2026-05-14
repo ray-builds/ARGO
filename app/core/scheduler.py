@@ -75,6 +75,41 @@ def register_econ_alert_job() -> None:
     logger.info("Econ alert job registered: daily 07:00 {}", _TIMEZONE)
 
 
+def register_auto_sync_jobs() -> None:
+    """Register Graph fallback-sync and subscription-renewal background jobs."""
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    try:
+        from app.services.graph_webhook_service import (
+            fallback_email_sync,
+            renew_due_subscriptions,
+        )
+    except ImportError as exc:
+        logger.warning("graph_webhook_service unavailable: {}", exc)
+        return
+
+    scheduler = get_scheduler()
+    scheduler.add_job(
+        fallback_email_sync,
+        trigger=IntervalTrigger(minutes=5),
+        id="email_fallback_sync",
+        name="Graph Fallback Email Sync",
+        replace_existing=True,
+        misfire_grace_time=60,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        renew_due_subscriptions,
+        trigger=IntervalTrigger(hours=6),
+        id="graph_subscription_renewal",
+        name="Graph Subscription Renewal",
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=True,
+    )
+    logger.info("Auto-sync jobs registered: fallback sync (5m), subscription renewal (6h)")
+
+
 async def start_scheduler() -> None:
     """Start the APScheduler. Called during FastAPI lifespan startup."""
     scheduler = get_scheduler()

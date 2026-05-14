@@ -127,7 +127,28 @@ let activeTagFilter = 'ALL';
 
 document.addEventListener('DOMContentLoaded', async function () {
     await loadEmails();
+    connectRealtimeInbox();
 });
+
+// Realtime inbox: server pushes NEW_EMAIL frames via WebSocket so there is
+// no need for a manual Synchronize button.
+function connectRealtimeInbox() {
+    try {
+        const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${proto}://${window.location.host}/api/ws/inbox`);
+        ws.onmessage = function (evt) {
+            let msg;
+            try { msg = JSON.parse(evt.data); } catch (_) { return; }
+            if (msg && msg.type === 'NEW_EMAIL' && msg.data) {
+                allEmails = [msg.data, ...allEmails];
+                renderTable(allEmails);
+            }
+        };
+        ws.onclose = function () {
+            setTimeout(connectRealtimeInbox, 5000);
+        };
+    } catch (_) { /* websockets unavailable — fallback polling covers us */ }
+}
 
 async function loadEmails() {
     try {

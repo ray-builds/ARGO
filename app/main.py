@@ -16,6 +16,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import get_settings
 from app.core.database import init_db, close_db
 from app.core.scheduler import (
+    register_auto_sync_jobs,
     register_overnight_summary_job,
     start_scheduler,
     stop_scheduler,
@@ -65,6 +66,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await init_db()
 
     register_overnight_summary_job()
+    register_auto_sync_jobs()
     await start_scheduler()
 
     logger.info("ARGO startup complete")
@@ -123,6 +125,18 @@ def _register_routers(app: FastAPI) -> None:
         app.include_router(email_legacy_router, prefix="/api/v1/email")
     except Exception as exc:
         logger.warning("email legacy router unavailable: {}", exc)
+
+    try:
+        from app.routes.webhooks import router as webhooks_router
+        app.include_router(webhooks_router)
+    except Exception as exc:
+        logger.warning("webhooks router unavailable: {}", exc)
+
+    try:
+        from app.routes.ws import router as ws_router
+        app.include_router(ws_router)
+    except Exception as exc:
+        logger.warning("ws router unavailable: {}", exc)
 
     # ── Module API routes ────────────────────────────────────────────────────
     _module_routers: list[tuple[str, str, list[str]]] = [

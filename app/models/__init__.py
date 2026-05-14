@@ -10,6 +10,7 @@ from app.models.client import Client, ClientInteraction
 from app.models.research import ResearchItem
 from app.models.economic import EconomicEvent
 from app.models.chat import ChatConversation, ChatMessage
+from app.models.graph_subscription import GraphSubscription
 
 __all__ = [
     "Base", "TimestampMixin",
@@ -17,4 +18,5 @@ __all__ = [
     "Meeting", "MeetingActionItem", "Document", "DocumentChunk",
     "Position", "Scenario", "Client", "ClientInteraction",
     "ResearchItem", "EconomicEvent", "ChatConversation", "ChatMessage",
+    "GraphSubscription",
 ]
