@@ -144,8 +144,12 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // ── CEO Emails ────────────────────────────
     try {
-        const emails = await argoFetch('/api/v1/emails/ceo-boxes?limit=12');
-        renderCeoEmails(emails);
+        const grouped = await argoFetch('/api/v1/emails/ceo-boxes');
+        // Backend returns {tag: [emails...]} — flatten for the card grid
+        const emails = Array.isArray(grouped)
+            ? grouped
+            : Object.values(grouped || {}).reduce(function (acc, arr) { return acc.concat(arr || []); }, []);
+        renderCeoEmails(emails.slice(0, 12));
         document.getElementById('urgent-count').textContent =
             emails.filter(function (e) { return e.tag === 'URGENT'; }).length;
         document.getElementById('unread-count').textContent =
@@ -201,7 +205,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                                 ${ev.country || ''} &nbsp;|&nbsp; Forecast: ${forecast} &nbsp;|&nbsp; Actual: ${actual}
                             </div>
                         </div>
-                        <span style="font-size:11px; color:var(--text-muted);">${ev.release_time || ''}</span>
+                        <span style="font-size:11px; color:var(--text-muted);">${ev.release_time_utc || ev.release_time || ''}</span>
                     </div>
                 `;
             }).join('');

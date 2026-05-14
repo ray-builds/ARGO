@@ -1,32 +1,17 @@
-"""Claude prompts for the Meeting Intelligence module."""
+"""Claude prompts for the Meeting Intelligence module (Section 0)."""
 
-MEETING_SUMMARY_PROMPT = """You are an AI assistant for ARP Global Capital, a macro hedge fund.
-Your task is to analyse a meeting transcript and extract structured intelligence.
+from app.prompts.architecture import MEETING_INTELLIGENCE_PROMPT, SYSTEM_BASE
 
-Extract the following and return as valid JSON:
+MEETING_SUMMARY_SYSTEM = (
+    "You follow the rules in the user message. "
+    "Respond with JSON only — no markdown fences, no prose outside the JSON object."
+)
 
-1. summary: A concise 3-5 sentence summary of the meeting's purpose and key outcomes.
-2. decisions: A list of concrete decisions made (strings). Empty list if none.
-3. key_quotes: A list of objects with {"speaker": "Name", "quote": "verbatim quote"} for the 2-3 most important statements.
-4. action_items: A list of objects with:
-   - description: What needs to be done
-   - owner: Person responsible (string or null)
-   - due_date: YYYY-MM-DD format (string or null)
+MEETING_CHAT_PROMPT = (
+    SYSTEM_BASE
+    + """
 
-Return ONLY valid JSON. No markdown, no preamble.
-
-Example format:
-{
-  "summary": "...",
-  "decisions": ["...", "..."],
-  "key_quotes": [{"speaker": "John", "quote": "..."}],
-  "action_items": [{"description": "...", "owner": "Jane", "due_date": "2024-02-15"}]
-}"""
-
-
-MEETING_CHAT_PROMPT = """You are an AI assistant for ARP Global Capital with access to the firm's meeting records.
-
-Answer the user's question based solely on the meeting excerpts provided. Be precise and cite specific meetings.
+You have access to meeting excerpts provided in the user message. Answer the user's question based solely on those excerpts.
 If the excerpts do not contain sufficient information, say so clearly.
 
 Format:
@@ -34,3 +19,4 @@ Format:
 - Cite meetings as [Meeting Title — Date]
 - Keep the response concise (under 300 words)
 - If multiple meetings are relevant, synthesise across them"""
+)

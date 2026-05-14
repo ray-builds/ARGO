@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class MarketMove(BaseModel):
@@ -35,7 +35,7 @@ class SummaryListItem(BaseModel):
     email_delivered: bool
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SummaryDetailResponse(BaseModel):
@@ -54,7 +54,7 @@ class SummaryDetailResponse(BaseModel):
     model_used: str
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
 
 class TriggerSummaryRequest(BaseModel):

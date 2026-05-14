@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARGO - HR Briefing and API Budget</title>
+  <style>
+    :root {
+      --navy: #0b1f3a;
+      --blue: #1f4f8a;
+      --cyan: #137ea8;
+      --ink: #1f2937;
+      --muted: #5b6472;
+      --line: #d8dde6;
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --good: #0f766e;
+      --warn: #92400e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.55;
+    }
+    .page {
+      max-width: 980px;
+      margin: 24px auto 48px;
+      background: var(--card);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      border: 1px solid var(--line);
+    }
+    .hero {
+      background: linear-gradient(135deg, var(--navy), var(--blue));
+      color: #fff;
+      padding: 40px 48px 32px;
+    }
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .hero p {
+      margin: 6px 0;
+      font-size: 16px;
+      color: rgba(255,255,255,0.9);
+    }
+    .content {
+      padding: 32px 48px 48px;
+    }
+    h2 {
+      margin: 30px 0 12px;
+      color: var(--navy);
+      font-size: 24px;
+      border-bottom: 2px solid var(--line);
+      padding-bottom: 8px;
+    }
+    h3 {
+      margin: 22px 0 10px;
+      color: var(--blue);
+      font-size: 18px;
+    }
+    p { margin: 10px 0; }
+    ul {
+      margin: 10px 0 10px 20px;
+      padding: 0;
+    }
+    li { margin: 6px 0; }
+    .lead {
+      font-size: 17px;
+      color: var(--muted);
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin: 18px 0;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px 18px;
+      background: #fff;
+    }
+    .card h4 {
+      margin: 0 0 8px;
+      color: var(--navy);
+      font-size: 16px;
+    }
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 6px;
+      margin-bottom: 6px;
+      background: #e9f3fb;
+      color: var(--blue);
+    }
+    .note {
+      border-left: 4px solid var(--cyan);
+      background: #f3fafc;
+      padding: 12px 14px;
+      margin: 16px 0;
+      color: #234;
+    }
+    .warning {
+      border-left-color: #d97706;
+      background: #fff7ed;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 22px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: #eef3f9;
+      color: var(--navy);
+      font-weight: 700;
+    }
+    .small { font-size: 12px; color: var(--muted); }
+    .footer {
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    code {
+      background: #f3f4f6;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: Consolas, monospace;
+      font-size: 0.95em;
+    }
+    @media print {
+      body { background: white; }
+      .page {
+        margin: 0;
+        max-width: none;
+        box-shadow: none;
+        border: none;
+      }
+      .hero { break-inside: avoid; }
+      table, .card { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <h1>ARGO</h1>
+      <p>HR Briefing: System Overview, Features, and Required API / Subscription Budget</p>
+      <p>Prepared from the current repository state on May 7, 2026</p>
+    </div>
+
+    <div class="content">
+      <p class="lead">
+        ARGO is an internal AI operations platform for ARP Global Capital. Its job is to reduce manual work around emails,
+        market briefings, meetings, research, portfolio analysis, client follow-up, and macro event monitoring.
+      </p>
+
+      <h2>1. What ARGO Does Today</h2>
+      <p>
+        ARGO is built as one internal web application. Team members sign in with Microsoft 365, use browser pages for each
+        workflow, and trigger AI-assisted actions behind the scenes through external APIs.
+      </p>
+
+      <div class="grid-2">
+        <div class="card">
+          <h4>Email Intelligence</h4>
+          <p>Pulls Microsoft 365 emails, classifies importance, tags them, and highlights what matters most.</p>
+        </div>
+        <div class="card">
+          <h4>Overnight Summary</h4>
+          <p>Builds a morning briefing from overnight emails, market moves, and financial headlines.</p>
+        </div>
+        <div class="card">
+          <h4>Meeting Intelligence</h4>
+          <p>Accepts transcripts or audio, transcribes meetings, extracts decisions, and creates action items.</p>
+        </div>
+        <div class="card">
+          <h4>Research Lake</h4>
+          <p>Stores research documents, chunks them, embeds them, and supports semantic search and Q&amp;A.</p>
+        </div>
+        <div class="card">
+          <h4>Portfolio Intelligence</h4>
+          <p>Tracks positions and generates AI scenario analysis and trade ideas.</p>
+        </div>
+        <div class="card">
+          <h4>Client / Sales Intelligence</h4>
+          <p>Acts as a lightweight CRM for investors, prospects, and relationship follow-ups.</p>
+        </div>
+        <div class="card">
+          <h4>Research Intelligence</h4>
+          <p>Summarizes broker or internal research, rates conviction, and builds a digest.</p>
+        </div>
+        <div class="card">
+          <h4>Economic Intelligence</h4>
+          <p>Tracks macro events and generates release-impact commentary when actual data arrives.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 18px;">
+        <h4>AI Assistant</h4>
+        <p>
+          Provides a chat interface so team members can ask ARGO questions in natural language and be routed toward the most
+          relevant module.
+        </p>
+      </div>
+
+      <div class="note">
+        In plain terms: ARGO saves staff time by replacing repeated manual triage, summarization, and search work with a single internal system.
+      </div>
+
+      <h2>2. Why Paid APIs and Credits Are Needed</h2>
+      <p>
+        ARGO does not generate AI outputs by itself. It orchestrates other paid services. Those services charge by token,
+        minute, message, or query.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Service</th>
+            <th>What ARGO uses it for</th>
+            <th>Why credits are necessary</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Anthropic Claude</strong></td>
+            <td>Email tagging, meeting summaries, overnight briefings, research summaries, portfolio scenarios, assistant routing/chat</td>
+            <td>Every AI text task sends tokens to Claude and is billed on usage.</td>
+          </tr>
+          <tr>
+            <td><strong>OpenAI</strong></td>
+            <td>Whisper speech-to-text and document embeddings for semantic search</td>
+            <td>Audio transcription and embeddings are metered usage features.</td>
+          </tr>
+          <tr>
+            <td><strong>Twilio WhatsApp</strong></td>
+            <td>Sending overnight summaries and macro alerts to WhatsApp recipients</td>
+            <td>WhatsApp messages are billed per message, plus Meta pass-through fees in some cases.</td>
+          </tr>
+          <tr>
+            <td><strong>Serper</strong></td>
+            <td>Real-time web/news search used by the overnight summary</td>
+            <td>Search calls consume credits after the free allowance.</td>
+          </tr>
+          <tr>
+            <td><strong>Microsoft 365 / Azure AD</strong></td>
+            <td>Login, mailbox access, and sending email via Microsoft Graph</td>
+            <td>ARGO requires an existing corporate Microsoft environment. This is a platform dependency rather than a token-credit API line item.</td>
+          </tr>
+          <tr>
+            <td><strong>AWS</strong></td>
+            <td>Production hosting, container deployment, and production database</td>
+            <td>Needed for a live production deployment, but separate from the AI usage budget.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>3. Recommended Starter Budget</h2>
+      <p>
+        For a small initial rollout, a practical starting point is to pre-fund the AI and messaging services lightly, then scale once
+        real usage is observed.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Line Item</th>
+            <th>Starter Amount</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Anthropic Claude Sonnet 4.5</td>
+            <td><strong>$20</strong></td>
+            <td>Higher-quality reasoning tasks: overnight summary, meeting synthesis, portfolio scenarios, assistant replies</td>
+          </tr>
+          <tr>
+            <td>Anthropic Claude Haiku 4.5</td>
+            <td><strong>$20</strong></td>
+            <td>High-volume lower-cost tasks: email classification and lightweight routing</td>
+          </tr>
+          <tr>
+            <td>OpenAI Whisper-1</td>
+            <td><strong>$20</strong></td>
+            <td>Meeting audio transcription</td>
+          </tr>
+          <tr>
+            <td>OpenAI text-embedding-3-small</td>
+            <td><strong>$20</strong></td>
+            <td>Research document embeddings for semantic search</td>
+          </tr>
+          <tr>
+            <td>Twilio</td>
+            <td><strong>$20</strong></td>
+            <td>WhatsApp delivery buffer for briefings and alerts</td>
+          </tr>
+          <tr>
+            <td>Serper</td>
+            <td><strong>$50 minimum paid pack</strong></td>
+            <td>Serper offers 2,500 free queries, then its first paid top-up is $50 for 50,000 credits</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        <strong>Starter total:</strong> <strong>$150</strong> if we fund all currently relevant paid services at a practical minimum.
+      </p>
+
+      <div class="note warning">
+        If the goal is only to start testing internally, the team can initially rely on Serper's free 2,500-query allowance and defer the first paid Serper top-up. In that lighter version, the initial spend would be about <strong>$100</strong> plus any existing Microsoft and hosting costs.
+      </div>
+
+      <h2>4. What $20 Buys for Each Service</h2>
+
+      <h3>Anthropic Claude Sonnet 4.5</h3>
+      <p>
+        Official pricing checked: <strong>$3 / 1M input tokens</strong> and <strong>$15 / 1M output tokens</strong>.
+      </p>
+      <p>
+        A rough business estimate: if one ARGO Sonnet task averages about <code>3,000 input tokens + 1,000 output tokens</code>,
+        that is about <strong>$0.024 per task</strong>. A <strong>$20</strong> balance would cover roughly <strong>830 similar tasks</strong>.
+      </p>
+
+      <h3>Anthropic Claude Haiku 4.5</h3>
+      <p>
+        Official pricing checked: <strong>$1 / 1M input tokens</strong> and <strong>$5 / 1M output tokens</strong>.
+      </p>
+      <p>
+        Using the same rough task size of <code>3,000 input + 1,000 output</code>, the cost is about <strong>$0.008 per task</strong>.
+        A <strong>$20</strong> balance would cover roughly <strong>2,500 similar tasks</strong>.
+      </p>
+
+      <h3>OpenAI Whisper-1</h3>
+      <p>
+        OpenAI's published Whisper price is <strong>$0.006 per minute of transcription</strong>.
+      </p>
+      <p>
+        A <strong>$20</strong> balance covers about <strong>3,333 minutes</strong> of audio, which is about <strong>55.5 hours</strong> of meeting recordings.
+      </p>
+
+      <h3>OpenAI text-embedding-3-small</h3>
+      <p>
+        Official pricing checked: <strong>$0.02 / 1M input tokens</strong>.
+      </p>
+      <p>
+        This is extremely inexpensive relative to the rest of the stack. A <strong>$20</strong> balance covers about
+        <strong>1 billion tokens of embeddings</strong>. For a typical internal research library, that is more than enough to start.
+      </p>
+
+      <h3>Twilio WhatsApp</h3>
+      <p>
+        Twilio's published WhatsApp fee is <strong>$0.005 per message</strong>, inbound or outbound. Meta may add template-message
+        fees depending on message category and whether the message is inside or outside the customer service window.
+      </p>
+      <ul>
+        <li><strong>Twilio fee only:</strong> $20 covers about <strong>4,000 messages</strong>.</li>
+        <li><strong>Example utility/auth message with Twilio + $0.0034 Meta fee:</strong> about <strong>2,380 messages</strong>.</li>
+      </ul>
+
+      <h3>Serper</h3>
+      <p>
+        Serper currently advertises <strong>2,500 free queries</strong> with no credit card required, and its first paid pack is
+        <strong>$50 for 50,000 credits</strong>.
+      </p>
+      <p>
+        This means there is no real need to assign a $20 starter balance here. The platform can start on the free tier, then move to the first paid bundle when news-search usage becomes regular.
+      </p>
+
+      <h2>5. What We Need to Pay For vs. What We May Already Have</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Likely New Spend</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Anthropic API</td>
+            <td>Yes</td>
+            <td>Needed for most text intelligence features in the current codebase</td>
+          </tr>
+          <tr>
+            <td>OpenAI API</td>
+            <td>Yes</td>
+            <td>Needed for meeting transcription and document embeddings</td>
+          </tr>
+          <tr>
+            <td>Twilio account / balance</td>
+            <td>Yes</td>
+            <td>Needed only if WhatsApp delivery is part of the rollout</td>
+          </tr>
+          <tr>
+            <td>Serper</td>
+            <td>Maybe later</td>
+            <td>Free tier can cover the first internal tests</td>
+          </tr>
+          <tr>
+            <td>Microsoft 365 / Azure AD</td>
+            <td>Often already owned</td>
+            <td>ARGO depends on an existing tenant, mailbox, and Azure app registration</td>
+          </tr>
+          <tr>
+            <td>AWS hosting</td>
+            <td>Yes for production</td>
+            <td>Separate infrastructure budget; not part of the API-credit starter pack</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>6. Recommended HR / Approval Summary</h2>
+      <p>
+        If ARGO is being approved for internal rollout, the cleanest initial approval is:
+      </p>
+      <ul>
+        <li><strong>$20</strong> for Claude Sonnet 4.5</li>
+        <li><strong>$20</strong> for Claude Haiku 4.5</li>
+        <li><strong>$20</strong> for OpenAI Whisper-1</li>
+        <li><strong>$20</strong> for OpenAI text-embedding-3-small</li>
+        <li><strong>$20</strong> for Twilio</li>
+        <li><strong>Use Serper free tier first</strong>, then move to <strong>$50</strong> when needed</li>
+      </ul>
+
+      <p>
+        This gives ARGO enough budget to demonstrate the main workflows without overcommitting financially. The actual spend can then be adjusted
+        based on real user traffic, number of meetings transcribed, number of briefings sent, and volume of research ingestion.
+      </p>
+
+      <div class="note">
+        Suggested starter approval: <strong>$100 immediately</strong> for AI + messaging, and <strong>$50 later</strong> for Serper once the free tier is exhausted.
+      </div>
+
+      <h2>7. Sources Checked</h2>
+      <ul>
+        <li>Anthropic Claude pricing: <code>https://platform.claude.com/docs/en/about-claude/pricing</code></li>
+        <li>OpenAI API pricing: <code>https://openai.com/api/pricing/</code></li>
+        <li>OpenAI GPT-5 mini model page: <code>https://developers.openai.com/api/docs/models/gpt-5-mini</code></li>
+        <li>OpenAI text-embedding-3-small page: <code>https://developers.openai.com/api/docs/models/text-embedding-3-small</code></li>
+        <li>OpenAI Whisper model page and Whisper pricing references</li>
+        <li>Twilio WhatsApp pricing: <code>https://www.twilio.com/en-us/whatsapp/pricing</code></li>
+        <li>Serper pricing: <code>https://serper.dev/</code></li>
+      </ul>
+
+      <div class="footer">
+        Prepared for internal communication. Pricing was checked against official vendor pages on May 7, 2026. Vendor pricing can change, so final approval should treat these numbers as the current starting estimate rather than a permanent quote.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

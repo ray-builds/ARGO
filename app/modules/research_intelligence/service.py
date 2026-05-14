@@ -12,9 +12,11 @@ from sqlalchemy import select, desc, func, update
 from app.core.claude_client import get_claude_client
 from app.models.research import ResearchItem
 from app.modules.research_intelligence.prompts import (
-    RESEARCH_SUMMARY_PROMPT,
     DIGEST_SYNTHESIS_PROMPT,
+    RESEARCH_SUMMARY_SYSTEM,
 )
+from app.prompts.architecture import RESEARCH_ANALYSIS_PROMPT
+from app.prompts.adapters import normalize_research_analysis_json
 from app.schemas.research import (
     ResearchIngestRequest,
     ResearchListItem,
@@ -90,20 +92,33 @@ class ResearchIntelligenceService:
         if not item.text_content:
             return
 
-        context = (
-            f"Title: {item.title}\n"
-            f"Supplier: {item.supplier_name}\n"
-            f"Asset Class: {item.asset_class or 'Not specified'}\n\n"
-            f"CONTENT:\n{item.text_content[:6000]}"
+        pub = item.published_date
+        if pub is None:
+            created = getattr(item, "created_at", None)
+            date_str = created.date().isoformat() if created else ""
+        elif hasattr(pub, "isoformat"):
+            date_str = pub.isoformat()
+        else:
+            date_str = str(pub)
+
+        user_prompt = RESEARCH_ANALYSIS_PROMPT.format(
+            source_firm=item.supplier_name,
+            author=item.supplier_email or "unknown",
+            title=item.title,
+            date=date_str,
+            doc_type=item.source_type or "BROKER_NOTE",
+            document_text=item.text_content[:6000],
+            portfolio_context="[DATA MISSING] — no portfolio snapshot attached at ingest.",
         )
 
         try:
             result = await self._claude.complete_json(
-                prompt=context,
-                system=RESEARCH_SUMMARY_PROMPT,
+                prompt=user_prompt,
+                system=RESEARCH_SUMMARY_SYSTEM,
                 use_sonnet=False,
                 max_tokens=600,
             )
+            result = normalize_research_analysis_json(result)
             item.thesis_summary = result.get("thesis_summary", "")
             item.key_data_points = json.dumps(result.get("key_data_points", []))
             conviction_raw = result.get("conviction_level", "MEDIUM")

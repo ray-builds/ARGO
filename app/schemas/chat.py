@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ChatMessageRequest(BaseModel):
@@ -25,7 +25,7 @@ class ChatMessageResponse(BaseModel):
     model_used: Optional[str] = None
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
 
 class ConversationListItem(BaseModel):

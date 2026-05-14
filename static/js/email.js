@@ -41,7 +41,10 @@ function filterByTag(tag) {
 async function archiveEmail(emailId) {
   confirmAction('Archive this email?', async function () {
     try {
-      await argoFetch(`/api/v1/email/${emailId}/archive`, { method: 'POST' });
+      await argoFetch('/api/v1/emails/archive', {
+        method: 'POST',
+        body: JSON.stringify({ email_ids: [emailId] }),
+      });
       const card = document.getElementById(`email-card-${emailId}`);
       if (card) {
         card.style.transition = 'opacity 0.3s, max-height 0.3s';
@@ -61,28 +64,11 @@ async function archiveEmail(emailId) {
  * Bulk-archive all emails tagged SKIP.
  */
 async function archiveAllSkip() {
-  const skipCards = document.querySelectorAll('.email-card[data-tag="SKIP"]');
-  const ids = Array.from(skipCards).map(function (c) { return c.dataset.emailId; });
-
-  if (!ids.length) {
-    showToast('No SKIP emails to archive', 'info');
-    return;
-  }
-
-  confirmAction(`Archive ${ids.length} SKIP email(s)? This cannot be undone.`, async function () {
+  confirmAction('Archive all SKIP-tagged emails? This cannot be undone.', async function () {
     try {
-      const result = await argoFetch('/api/v1/email/archive-bulk', {
-        method: 'POST',
-        body: JSON.stringify({ email_ids: ids }),
-      });
-
-      skipCards.forEach(function (card) {
-        card.style.transition = 'opacity 0.3s';
-        card.style.opacity = '0';
-        setTimeout(function () { card.remove(); }, 300);
-      });
-
+      const result = await argoFetch('/api/v1/emails/archive-skip', { method: 'POST' });
       showToast(`Archived ${result.archived} email(s)`, 'success');
+      setTimeout(function () { location.reload(); }, 800);
     } catch (_) {}
   });
 }
@@ -102,12 +88,8 @@ async function fetchEmails(userEmail) {
   }
 
   try {
-    const result = await argoFetch('/api/v1/email/fetch', {
-      method: 'POST',
-      body: JSON.stringify({ user_email: userEmail, force_refresh: false }),
-    });
-
-    const newCount = result.new || 0;
+    const result = await argoFetch('/api/v1/emails/sync?hours_back=24');
+    const newCount = result.new_emails || 0;
     showToast(
       newCount > 0 ? `Fetched ${newCount} new email(s)` : 'Inbox is up to date',
       'success',
@@ -130,7 +112,7 @@ async function fetchEmails(userEmail) {
 
 async function markEmailRead(emailId) {
   try {
-    await argoFetch(`/api/v1/email/${emailId}/read`, { method: 'POST' });
+    await argoFetch(`/api/v1/emails/${emailId}/read`, { method: 'POST' });
     const card = document.getElementById(`email-card-${emailId}`);
     if (card) card.classList.remove('email-card-unread');
   } catch (_) {}
@@ -140,7 +122,7 @@ async function markEmailRead(emailId) {
 
 async function updateEmailTag(emailId, newTag) {
   try {
-    await argoFetch(`/api/v1/email/${emailId}/tag`, {
+    await argoFetch(`/api/v1/emails/${emailId}/tag`, {
       method: 'PATCH',
       body: JSON.stringify({ tag: newTag }),
     });

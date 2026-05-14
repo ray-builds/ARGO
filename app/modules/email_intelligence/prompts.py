@@ -1,34 +1,18 @@
-"""Claude prompts for the Email Intelligence module."""
+"""Claude prompts for the Email Intelligence module (Section 0 architecture)."""
 
-EMAIL_SCORING_SYSTEM = """You are an email classifier for ARP Global Capital, a macro hedge fund.
-Classify emails accurately. Output valid JSON only."""
+from __future__ import annotations
 
-EMAIL_SCORING_PROMPT = """
-Classify this email for a macro hedge fund:
+from app.prompts.architecture import EMAIL_CLASSIFICATION_PROMPT
 
-From: {sender_name} <{sender_email}>
-Subject: {subject}
-Preview: {body_preview}
+# User message includes SYSTEM_BASE + task; keep system minimal for JSON mode.
+EMAIL_CLASSIFICATION_SYSTEM = (
+    "You follow the rules and schema in the user message. "
+    "Respond with JSON only — no markdown fences, no prose outside the JSON object."
+)
 
-Tags available (choose exactly one):
-- URGENT: requires immediate action today
-- CLIENT: from/about an investor, LP, or client relationship
-- TRADE: trade confirmation, execution, prime broker, counterparty
-- RESEARCH: research reports, market analysis, broker notes
-- OPERATIONS: fund ops, settlements, reconciliation, compliance
-- HR: people, payroll, benefits, recruitment
-- REGULATORY: regulatory filings, compliance, legal
-- SKIP: newsletters, marketing, spam, automated notifications
-
-Return JSON only:
-{{
-  "tag": "ONE_OF_THE_TAGS_ABOVE",
-  "relevance_score": <integer 0-100, how important for the PM>,
-  "ai_summary": "<1-2 sentence extract of what this email is about and why it matters>",
-  "action_required": "<null or specific action needed>",
-  "key_conclusion": "<null or key fact/number from this email>"
-}}
-"""
+# Backward-compatible names used by EmailIntelligenceService
+EMAIL_SCORING_SYSTEM = EMAIL_CLASSIFICATION_SYSTEM
+EMAIL_SCORING_PROMPT = EMAIL_CLASSIFICATION_PROMPT
 
 # Tag color mapping (CSS classes)
 TAG_COLORS: dict[str, str] = {

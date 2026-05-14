@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel, Field
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from loguru import logger
@@ -16,6 +17,10 @@ from app.models.user import User
 
 router = APIRouter(tags=["Email Intelligence"])
 templates = Jinja2Templates(directory="app/templates")
+
+
+class EmailTagPatchBody(BaseModel):
+    tag: str = Field(..., min_length=1, max_length=32)
 
 
 # ── API endpoints ─────────────────────────────────────────────────────────────
@@ -65,8 +70,8 @@ async def get_inbox(
             limit=limit,
             offset=offset,
         )
-
-    return [_email_to_dict(e) for e in emails]
+        # Serialize inside the session to avoid DetachedInstanceError on relationships
+        return [_email_to_dict(e) for e in emails]
 
 
 @router.get("/ceo-boxes", response_class=JSONResponse)
@@ -80,8 +85,7 @@ async def get_ceo_boxes(
     async with get_db_session() as db:
         service = EmailIntelligenceService(db)
         grouped = await service.get_ceo_emails(user_email=current_user.email)
-
-    return {tag: [_email_to_dict(e) for e in emails] for tag, emails in grouped.items()}
+        return {tag: [_email_to_dict(e) for e in emails] for tag, emails in grouped.items()}
 
 
 @router.get("/stats", response_class=JSONResponse)
@@ -141,6 +145,60 @@ async def archive_skip_emails(
     return {"archived": count}
 
 
+@router.post("/{email_id}/read", response_class=JSONResponse)
+async def mark_email_read_endpoint(
+    email_id: str,
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Mark an email as read (local DB; syncs to Microsoft Graph when a token is present)."""
+    from app.core.database import get_db_session
+    from app.modules.email_intelligence.service import EmailIntelligenceService
+
+    token = getattr(current_user, "graph_access_token", None) or None
+
+    async with get_db_session() as db:
+        service = EmailIntelligenceService(db)
+        email = await service.mark_email_read(
+            email_id=email_id,
+            user_email=current_user.email,
+            access_token=token,
+        )
+        if email is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Email not found")
+
+    return _email_to_dict(email)
+
+
+@router.patch("/{email_id}/tag", response_class=JSONResponse)
+async def patch_email_tag(
+    email_id: str,
+    body: EmailTagPatchBody,
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Update the AI classification tag for an email (local DB only)."""
+    from app.core.database import get_db_session
+    from app.modules.email_intelligence.prompts import VALID_TAGS
+    from app.modules.email_intelligence.service import EmailIntelligenceService
+
+    if body.tag not in VALID_TAGS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid tag. Must be one of: {', '.join(VALID_TAGS)}",
+        )
+
+    async with get_db_session() as db:
+        service = EmailIntelligenceService(db)
+        email = await service.set_email_tag(
+            email_id=email_id,
+            user_email=current_user.email,
+            tag=body.tag,
+        )
+        if email is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Email not found")
+
+    return _email_to_dict(email)
+
+
 # ── HTML page views ───────────────────────────────────────────────────────────
 
 @router.get("/view/inbox", response_class=HTMLResponse)
@@ -161,6 +219,7 @@ async def view_inbox(
             limit=100,
         )
         stats = await service.get_email_stats(user_email=current_user.email)
+        emails_payload = [_email_to_dict(e) for e in emails]
 
     return templates.TemplateResponse(
         "email/inbox.html",
@@ -169,7 +228,7 @@ async def view_inbox(
             "user": current_user,
             "active_nav": "email",
             "page_title": "Email Inbox",
-            "emails": [_email_to_dict(e) for e in emails],
+            "emails": emails_payload,
             "stats": stats,
             "active_tag": tag or "ALL",
         },
@@ -190,8 +249,8 @@ async def view_ceo_boxes(
         grouped = await service.get_ceo_emails(user_email=current_user.email)
         stats = await service.get_email_stats(user_email=current_user.email)
         # Flatten for card grid; client-side filters by tag
-        all_emails = [
-            email
+        emails_payload = [
+            _email_to_dict(email)
             for emails in grouped.values()
             for email in emails
         ]
@@ -203,7 +262,7 @@ async def view_ceo_boxes(
             "user": current_user,
             "active_nav": "email",
             "page_title": "CEO Inbox Intelligence",
-            "emails": [_email_to_dict(e) for e in all_emails],
+            "emails": emails_payload,
             "stats": stats,
         },
     )

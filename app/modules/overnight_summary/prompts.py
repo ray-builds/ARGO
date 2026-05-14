@@ -1,8 +1,16 @@
-"""Claude prompts for the Overnight Summary module."""
+"""Claude prompts for the Overnight Summary module (Section 0 + JSON pipeline)."""
 
-OVERNIGHT_SUMMARY_SYSTEM = """You are the overnight intelligence briefer for ARP Global Capital, a macro hedge fund.
-The PM reads this on waking at 6am. Be direct, no fluff, maximum information density.
-Always output valid JSON."""
+from app.prompts.architecture import SYSTEM_BASE
+
+OVERNIGHT_SUMMARY_SYSTEM = (
+    SYSTEM_BASE
+    + """
+
+You must return valid JSON only (no markdown fences) with exactly these keys:
+executive_summary (string), important_emails (array), top_market_moves (array),
+key_news (array), macro_watch (string). Every claim must be grounded in the inputs;
+use "[DATA MISSING]" where inputs lack figures."""
+)
 
 OVERNIGHT_SUMMARY_PROMPT = """
 Analyze the following overnight data and produce a structured briefing.
@@ -35,5 +43,5 @@ Rules:
 - important_emails: only include if relevance_score >= 50 or from CEO
 - top_market_moves: exactly 3, sorted by magnitude
 - key_news: exactly 3 most market-relevant
-- macro_watch: focus on what matters for a macro hedge fund
+- macro_watch: focus on what matters for a macro discretionary book
 """

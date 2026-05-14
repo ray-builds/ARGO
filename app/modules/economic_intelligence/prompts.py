@@ -1,17 +1,27 @@
-"""Claude prompts for the Economic Intelligence module."""
+"""Claude prompts for the Economic Intelligence module (Section 0)."""
 
-RELEASE_ANALYSIS_PROMPT = """You are a macro analyst at ARP Global Capital. An economic data release has just come in.
+from app.prompts.architecture import ECONOMIC_RELEASE_PROMPT, SYSTEM_BASE
 
-Provide a concise 3-5 sentence market impact analysis:
-1. Was the print a beat, miss, or in-line with expectations? By how much?
-2. What is the likely immediate market reaction across rates, FX, and equities?
-3. Does this change the narrative for the central bank's next meeting?
-4. Any tail risks or second-order effects to watch?
+ECONOMIC_RELEASE_SYSTEM = (
+    "Follow the rules and output structure in the user message. Markdown only — "
+    "use the exact section headers requested."
+)
 
-Be direct and specific. Use basis points for rate moves, percentages for FX/equity moves.
-Do not hedge excessively — give a clear view."""
+# Backward-compatible alias (was used as system string)
+RELEASE_ANALYSIS_PROMPT = ECONOMIC_RELEASE_SYSTEM
 
+MORNING_ALERT_PROMPT = (
+    SYSTEM_BASE
+    + """
 
-MORNING_ALERT_PROMPT = """Format a concise morning economic event alert for a macro hedge fund PM.
+Format a concise morning economic event alert for a macro hedge fund PM.
 Include: event name, country, release time UTC, consensus forecast, previous value.
 Keep each alert to 2 lines maximum."""
+)
+
+__all__ = [
+    "ECONOMIC_RELEASE_PROMPT",
+    "ECONOMIC_RELEASE_SYSTEM",
+    "RELEASE_ANALYSIS_PROMPT",
+    "MORNING_ALERT_PROMPT",
+]

@@ -8,6 +8,7 @@ from typing import Any
 from loguru import logger
 from sqlalchemy import and_, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
 from app.core.claude_client import get_claude_client
@@ -18,6 +19,7 @@ from app.modules.email_intelligence.prompts import (
     EMAIL_SCORING_PROMPT,
     VALID_TAGS,
 )
+from app.prompts.adapters import normalize_email_classification_for_storage
 
 
 class EmailIntelligenceService:
@@ -163,7 +165,10 @@ class EmailIntelligenceService:
             sender_name=sender_name or "",
             sender_email=sender_email or "",
             subject=subject or "",
-            body_preview=(body_preview or "")[:500],
+            body_text=(body_preview or "")[:2000],
+            attachment_list="[]",
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            thread_count=1,
         )
 
         try:
@@ -172,6 +177,7 @@ class EmailIntelligenceService:
                 system=EMAIL_SCORING_SYSTEM,
                 use_sonnet=False,
             )
+            result = normalize_email_classification_for_storage(result)
             # Sanitise tag
             tag = result.get("tag", "SKIP")
             if tag not in VALID_TAGS:
@@ -234,6 +240,7 @@ class EmailIntelligenceService:
 
         result = await self.db.execute(
             select(Email)
+            .options(selectinload(Email.highlights))
             .where(and_(*conditions))
             .order_by(desc(Email.relevance_score), desc(Email.received_at))
             .limit(limit)
@@ -252,6 +259,7 @@ class EmailIntelligenceService:
         """
         result = await self.db.execute(
             select(Email)
+            .options(selectinload(Email.highlights))
             .where(
                 and_(
                     Email.mailbox_user_email == user_email,
@@ -378,6 +386,58 @@ class EmailIntelligenceService:
         )
         logger.info("Bulk-archived {} SKIP emails for {}", len(ids), user_email)
         return len(ids)
+
+    async def mark_email_read(
+        self,
+        email_id: str,
+        user_email: str,
+        access_token: str | None = None,
+    ) -> Email | None:
+        """Set ``is_read`` on an email owned by ``user_email``; optionally sync to Graph."""
+        result = await self.db.execute(
+            select(Email)
+            .options(selectinload(Email.highlights))
+            .where(
+                and_(Email.id == email_id, Email.mailbox_user_email == user_email)
+            )
+        )
+        email = result.scalar_one_or_none()
+        if email is None:
+            return None
+        email.is_read = True
+        if access_token:
+            try:
+                graph = GraphClient(access_token)
+                await graph.patch_message(
+                    user_email, email.graph_message_id, {"isRead": True}
+                )
+            except Exception as exc:
+                logger.warning("Graph isRead patch failed for email {}: {}", email_id, exc)
+        await self.db.flush()
+        return email
+
+    async def set_email_tag(
+        self,
+        email_id: str,
+        user_email: str,
+        tag: str,
+    ) -> Email | None:
+        """Update classification tag for an email owned by ``user_email`` (local DB only)."""
+        if tag not in VALID_TAGS:
+            return None
+        result = await self.db.execute(
+            select(Email)
+            .options(selectinload(Email.highlights))
+            .where(
+                and_(Email.id == email_id, Email.mailbox_user_email == user_email)
+            )
+        )
+        email = result.scalar_one_or_none()
+        if email is None:
+            return None
+        email.tag = tag
+        await self.db.flush()
+        return email
 
     # ── Private helpers ───────────────────────────────────────────────────────
 

@@ -60,7 +60,15 @@ async def auth_callback(
     # Validate CSRF state
     stored_state = request.session.get("oauth_state")
     if not stored_state or stored_state != state:
-        logger.error(f"CSRF state mismatch: stored={stored_state!r} received={state!r}")
+        logger.error(
+            "CSRF state mismatch: stored={!r} received={!r}. "
+            "Common causes: (1) browser switched between 'localhost' and '127.0.0.1' "
+            "(must match APP_BASE_URL and the Azure redirect URI exactly), "
+            "(2) SECRET_KEY changed (e.g. app reloaded with an ephemeral key), "
+            "(3) callback opened in a different browser/profile, "
+            "(4) cookies blocked. APP_BASE_URL={}",
+            stored_state, state, get_settings().app_base_url,
+        )
         return RedirectResponse(url="/login?error=state_mismatch", status_code=302)
 
     if not code:

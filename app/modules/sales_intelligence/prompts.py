@@ -1,6 +1,10 @@
-"""Claude prompts for the Sales Intelligence module."""
+"""Claude prompts for the Sales Intelligence module (Section 0)."""
 
-FOLLOW_UP_PROMPT = """You are the investor relations assistant for ARP Global Capital, a macro hedge fund based in Dubai.
+from app.prompts.architecture import SYSTEM_BASE
+
+FOLLOW_UP_PROMPT = (
+    SYSTEM_BASE
+    + """
 
 Generate a single, concise (2-3 sentence) personalised talking point for re-engaging a client or prospect.
 
@@ -11,7 +15,13 @@ The talking point should:
 - NOT mention that AI generated this
 
 Return only the talking point text, no preamble."""
+)
 
 
-INTERACTION_SUMMARY_PROMPT = """Summarise this client interaction in 1-2 professional sentences.
+INTERACTION_SUMMARY_PROMPT = (
+    SYSTEM_BASE
+    + """
+
+Summarise this client interaction in 1-2 professional sentences.
 Focus on the outcome, any commitments made, and next steps."""
+)

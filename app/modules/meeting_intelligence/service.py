@@ -14,8 +14,11 @@ from sqlalchemy import select, desc, update
 
 from app.core.claude_client import get_claude_client
 from app.models.meeting import Meeting, MeetingActionItem
+from app.prompts.adapters import normalize_meeting_intelligence_json
+from app.prompts.architecture import MEETING_INTELLIGENCE_PROMPT
+
 from app.modules.meeting_intelligence.prompts import (
-    MEETING_SUMMARY_PROMPT,
+    MEETING_SUMMARY_SYSTEM,
     MEETING_CHAT_PROMPT,
 )
 from app.schemas.meeting import (
@@ -143,24 +146,36 @@ class MeetingIntelligenceService:
         meeting.status = MeetingStatus.SUMMARIZING.value
         await self._db.flush()
 
-        context = (
-            f"Meeting: {meeting.title}\n"
-            f"Type: {meeting.meeting_type}\n"
-            f"Date: {meeting.meeting_date}\n"
-            f"Attendees: {', '.join(meeting.attendees or [])}\n\n"
-            f"TRANSCRIPT:\n{meeting.transcript_clean[:8000]}"
+        raw_attendees = meeting.attendees or "[]"
+        try:
+            attendees_list = (
+                json.loads(raw_attendees)
+                if isinstance(raw_attendees, str)
+                else list(raw_attendees or [])
+            )
+        except (json.JSONDecodeError, TypeError):
+            attendees_list = []
+
+        user_prompt = MEETING_INTELLIGENCE_PROMPT.format(
+            meeting_date=str(meeting.meeting_date),
+            meeting_title=meeting.title,
+            participants=", ".join(str(a) for a in attendees_list),
+            duration_minutes=meeting.duration_minutes or 0,
+            meeting_type=meeting.meeting_type,
+            transcript_text=(meeting.transcript_clean or "")[:12000],
         )
 
         try:
             result = await self._claude.complete_json(
-                prompt=context,
-                system=MEETING_SUMMARY_PROMPT,
+                prompt=user_prompt,
+                system=MEETING_SUMMARY_SYSTEM,
                 use_sonnet=True,
                 max_tokens=2000,
             )
+            result = normalize_meeting_intelligence_json(result)
             meeting.summary = result.get("summary", "")
-            meeting.decisions = result.get("decisions", [])
-            meeting.key_quotes = result.get("key_quotes", [])
+            meeting.decisions = json.dumps(result.get("decisions", []))
+            meeting.key_quotes = json.dumps(result.get("key_quotes", []))
             meeting.summary_model = self._claude.sonnet_model
             meeting.status = MeetingStatus.COMPLETE.value
 

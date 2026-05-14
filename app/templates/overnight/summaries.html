@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 async function loadSummaries() {
     try {
-        allSummaries = await argoFetch('/api/v1/overnight/?limit=200');
+        allSummaries = await argoFetch('/api/v1/overnight/summaries?limit=200&offset=0');
         document.getElementById('table-loading').style.display = 'none';
         renderTable(allSummaries);
     } catch (_) {
@@ -195,12 +195,16 @@ async function confirmTrigger() {
     btn.textContent  = 'Running…';
 
     try {
-        const result = await argoFetch('/api/v1/overnight/trigger', {
+        const result = await argoFetch('/api/v1/overnight/generate', {
             method: 'POST',
             body: JSON.stringify({ date, send_whatsapp: sendWa }),
         });
         closeModal('trigger-modal');
-        showToast('Summary generated successfully', 'success');
+        if (result.was_new) {
+            showToast('Summary generated successfully', 'success');
+        } else {
+            showToast('Summary for that date already exists — opened latest record.', 'success');
+        }
         await loadSummaries();
         if (result.id) window.location = `/overnight/${result.id}`;
     } catch (_) {

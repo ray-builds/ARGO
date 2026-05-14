@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./argo_dev.db"
 
     # Anthropic Claude
-    anthropic_api_key: str = ""
+    anthropic_api_key: str 
     claude_haiku_model: str = "claude-haiku-4-5"
     claude_sonnet_model: str = "claude-sonnet-4-5"
 

@@ -7,18 +7,28 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from loguru import logger
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.dependencies import get_current_user, require_dev_lead
 from app.models.user import User
 
 router = APIRouter(tags=["Overnight Summary"])
 templates = Jinja2Templates(directory="app/templates")
+
+
+class OvernightGenerateBody(BaseModel):
+    """Optional body for manual summary generation (matches overnight UI)."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    briefing_date: Optional[date] = Field(default=None, alias="date")
+    send_whatsapp: bool = False
 
 
 # ── API endpoints ─────────────────────────────────────────────────────────────
@@ -60,32 +70,47 @@ async def get_summary(
 
 @router.post("/generate", response_class=JSONResponse)
 async def generate_summary(
-    request: Request,
     current_user: User = Depends(require_dev_lead),
+    body: Optional[OvernightGenerateBody] = Body(default=None),
 ) -> JSONResponse:
-    """Trigger summary generation immediately.
+    """Trigger summary generation for a date (defaults to today UTC).
 
-    Returns 200 with the summary JSON.
-    Returns 409 if a summary has already been generated today.
+    Idempotent: if a summary already exists for that date, returns it with
+    ``was_new: false``. When ``send_whatsapp`` is true, delivery runs only for
+    a newly created summary (avoids duplicate sends for existing rows).
     """
     from app.core.database import get_db_session
     from app.modules.overnight_summary.service import OvernightSummaryService
 
-    target_date = date.today()
+    target_date = (
+        body.briefing_date
+        if body and body.briefing_date is not None
+        else datetime.now(timezone.utc).date()
+    )
+    send_whatsapp = bool(body and body.send_whatsapp)
 
     async with get_db_session() as db:
         service = OvernightSummaryService(db)
-        # Check if already exists
-        existing = await service._get_by_date(target_date)
-        if existing is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Summary for {target_date} already generated (id={existing.id})",
-            )
+        existing_before = await service._get_by_date(target_date)
+        was_new = existing_before is None
         summary = await service.generate_summary(target_date)
 
-    logger.info("Manual summary generation triggered by {}: id={}", current_user.email, summary.id)
-    return JSONResponse(content=_summary_to_dict(summary, full=True))
+        delivered = False
+        if send_whatsapp and was_new:
+            delivered = await service.deliver_summary(summary.id)
+
+    logger.info(
+        "Manual overnight generate by {}: id={} date={} was_new={} delivered={}",
+        current_user.email,
+        summary.id,
+        target_date,
+        was_new,
+        delivered,
+    )
+    payload = _summary_to_dict(summary, full=True)
+    payload["was_new"] = was_new
+    payload["delivered"] = delivered if send_whatsapp and was_new else False
+    return JSONResponse(content=payload)
 
 
 @router.post("/deliver/{summary_id}", response_class=JSONResponse)

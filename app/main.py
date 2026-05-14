@@ -113,6 +113,12 @@ def _register_routers(app: FastAPI) -> None:
     except Exception as exc:
         logger.warning("pages router unavailable: {}", exc)
 
+    try:
+        from app.routes.email_legacy import router as email_legacy_router
+        app.include_router(email_legacy_router, prefix="/api/v1/email")
+    except Exception as exc:
+        logger.warning("email legacy router unavailable: {}", exc)
+
     # ── Module API routes ────────────────────────────────────────────────────
     _module_routers: list[tuple[str, str, list[str]]] = [
         ("app.modules.overnight_summary.router",    "/api/v1/overnight",       ["overnight"]),

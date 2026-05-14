@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 async function loadEmails() {
     try {
-        allEmails = await argoFetch('/api/v1/email/?limit=100&sort=relevance_score&order=desc');
+        allEmails = await argoFetch('/api/v1/emails/inbox?limit=100');
         document.getElementById('table-loading').style.display = 'none';
         document.getElementById('table-wrapper').style.display = 'block';
         renderTable(allEmails);
@@ -201,7 +201,7 @@ function applyFilters() {
     const filtered = allEmails.filter(function (e) {
         if (effectiveTag && e.tag !== effectiveTag) return false;
         if (dateFrom && e.received_at < dateFrom) return false;
-        if (inboxSel === 'ceo' && !e.is_ceo_email) return false;
+        if (inboxSel === 'ceo' && !e.is_from_ceo) return false;
         if (search) {
             const haystack = [e.subject, e.sender_name, e.sender_email, e.body_preview].join(' ').toLowerCase();
             if (!haystack.includes(search)) return false;

@@ -50,7 +50,7 @@ def get_auth_url(state: str) -> str:
     settings = get_settings()
     msal_app = _build_msal_app()
     scopes = get_msal_scopes()
-    redirect_uri = f"{settings.app_base_url}/auth/callback"
+    redirect_uri = settings.azure_redirect_uri
 
     return msal_app.get_authorization_request_url(
         scopes=scopes,
@@ -76,7 +76,7 @@ async def exchange_code_for_token(code: str, state: str) -> dict[str, Any]:
     settings = get_settings()
     msal_app = _build_msal_app()
     scopes = get_msal_scopes()
-    redirect_uri = f"{settings.app_base_url}/auth/callback"
+    redirect_uri = settings.azure_redirect_uri
 
     result: dict[str, Any] = msal_app.acquire_token_by_authorization_code(
         code=code,
@@ -227,6 +227,22 @@ class GraphClient:
                 logger.warning("Access token expired for {}", user_email)
             response.raise_for_status()
             logger.info("Archived message {} for {}", message_id, user_email)
+
+    async def patch_message(
+        self,
+        user_email: str,
+        message_id: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """PATCH fields on a message (e.g. ``{"isRead": true}``)."""
+        url = f"{self.BASE}/users/{user_email}/messages/{message_id}"
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.patch(url, headers=self._headers, json=payload)
+            if response.status_code == 401:
+                logger.warning("Access token expired for {}", user_email)
+            response.raise_for_status()
+            logger.debug("Patched message {} for {}", message_id, user_email)
 
     # ── Calendar ─────────────────────────────────────────────────────────────
 

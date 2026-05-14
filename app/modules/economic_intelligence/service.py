@@ -11,7 +11,11 @@ from sqlalchemy import select, desc, and_, update
 
 from app.core.claude_client import get_claude_client
 from app.models.economic import EconomicEvent
-from app.modules.economic_intelligence.prompts import RELEASE_ANALYSIS_PROMPT
+from app.modules.economic_intelligence.prompts import (
+    ECONOMIC_RELEASE_PROMPT,
+    ECONOMIC_RELEASE_SYSTEM,
+)
+from app.prompts.adapters import economic_surprise_direction_for_prompt
 from app.schemas.economic import (
     EconEventResponse,
     ReleaseAnalysisResponse,
@@ -151,22 +155,38 @@ class EconomicIntelligenceService:
         )
         event.surprise_direction = surprise_direction
 
-        context = (
-            f"Event: {event.event_name}\n"
-            f"Country: {event.country} ({event.currency or ''})\n"
-            f"Release Date: {event.release_date}\n"
-            f"Forecast: {event.forecast or 'N/A'}\n"
-            f"Previous: {event.previous or 'N/A'}\n"
-            f"Actual: {actual_value}\n"
-            f"Surprise: {surprise_direction or 'Unknown'}"
+        surprise_for_prompt = economic_surprise_direction_for_prompt(surprise_direction)
+        surprise_mag = "0"
+        try:
+            if event.forecast and actual_value:
+                fc = float(str(event.forecast).replace("%", "").replace(",", ""))
+                ac = float(str(actual_value).replace("%", "").replace(",", ""))
+                surprise_mag = str(round(abs(ac - fc), 6))
+        except (ValueError, TypeError, AttributeError):
+            surprise_mag = "[DATA MISSING]"
+
+        rt_display = event.release_date.isoformat()
+        if event.release_time_utc:
+            rt_display = f"{event.release_date} {event.release_time_utc.isoformat(timespec='minutes')}"
+
+        user_prompt = ECONOMIC_RELEASE_PROMPT.format(
+            indicator_name=event.event_name,
+            actual_value=str(actual_value),
+            consensus=str(event.forecast or "N/A"),
+            prior_value=str(event.previous or "N/A"),
+            surprise=surprise_mag,
+            surprise_direction=surprise_for_prompt,
+            release_time=rt_display,
+            portfolio_exposures="[DATA MISSING] — attach Broadridge / risk snapshot when available.",
+            historical_reaction=event.country or "unknown",
         )
 
         try:
             analysis = await self._claude.complete(
-                prompt=context,
-                system=RELEASE_ANALYSIS_PROMPT,
+                prompt=user_prompt,
+                system=ECONOMIC_RELEASE_SYSTEM,
                 use_sonnet=True,
-                max_tokens=300,
+                max_tokens=900,
             )
             event.ai_analysis = analysis
         except Exception as exc:

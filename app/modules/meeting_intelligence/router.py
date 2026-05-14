@@ -126,6 +126,31 @@ async def _background_transcribe(meeting_id: str, file: UploadFile, user_email: 
         logger.exception(f"Background transcription failed for meeting {meeting_id}: {exc}")
 
 
+@router.get("/stats")
+async def meeting_stats(
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Return meeting counts (last 30 days, total, open action items)."""
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import select, func
+    from app.core.database import get_db_session
+    from app.models.meeting import Meeting, MeetingActionItem
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    async with get_db_session() as db:
+        last_30 = (await db.execute(
+            select(func.count()).select_from(Meeting).where(Meeting.created_at >= cutoff)
+        )).scalar_one()
+        total = (await db.execute(
+            select(func.count()).select_from(Meeting)
+        )).scalar_one()
+        open_actions = (await db.execute(
+            select(func.count()).select_from(MeetingActionItem).where(MeetingActionItem.is_complete == False)  # noqa: E712
+        )).scalar_one()
+
+    return {"last_30_days": int(last_30 or 0), "total": int(total or 0), "open_action_items": int(open_actions or 0)}
+
+
 @router.get("/action-items", response_model=list[ActionItemResponse])
 async def list_action_items(
     incomplete_only: bool = True,

@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class EmailTag(str, Enum):
@@ -29,7 +29,7 @@ class EmailHighlightResponse(BaseModel):
     model_used: str
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
 
 class EmailResponse(BaseModel):
@@ -50,7 +50,7 @@ class EmailResponse(BaseModel):
     processed_at: Optional[datetime] = None
     highlights: list[EmailHighlightResponse] = []
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
 
 class EmailDetailResponse(EmailResponse):
