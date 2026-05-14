@@ -1,6 +1,8 @@
 """Microsoft Graph API client — all Graph calls for ARGO must go through here."""
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -11,6 +13,39 @@ from app.config import get_settings
 
 
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
+
+
+def _configure_msal_http_tls() -> None:
+    """Point requests/MSAL at a CA bundle and optionally disable verify (dev only)."""
+    settings = get_settings()
+    if settings.ssl_ca_bundle:
+        path = Path(settings.ssl_ca_bundle)
+        if path.is_file():
+            os.environ["REQUESTS_CA_BUNDLE"] = str(path.resolve())
+            logger.info("Using SSL CA bundle for MSAL/requests: {}", path)
+        else:
+            logger.warning("ssl_ca_bundle path is not a file (ignored): {}", path)
+
+
+def _build_msal_app() -> msal.ConfidentialClientApplication:
+    """Build MSAL app; call after _configure_msal_http_tls()."""
+    _configure_msal_http_tls()
+    settings = get_settings()
+    if not settings.msal_ssl_verify:
+        if settings.is_production:
+            raise RuntimeError(
+                "msal_ssl_verify=False is not allowed when environment=production"
+            )
+        logger.warning(
+            "MSAL TLS certificate verification is disabled (msal_ssl_verify=false) — "
+            "local dev only; traffic can be intercepted"
+        )
+    return msal.ConfidentialClientApplication(
+        client_id=settings.azure_client_id,
+        client_credential=settings.azure_client_secret,
+        authority=f"https://login.microsoftonline.com/{settings.azure_tenant_id}",
+        verify=settings.msal_ssl_verify,
+    )
 
 # MSAL automatically adds openid, profile; passing them explicitly raises an error.
 MSAL_RESERVED_SCOPES: frozenset[str] = frozenset({"openid", "profile", "offline_access"})
@@ -27,15 +62,6 @@ def get_msal_scopes() -> list[str]:
             "Ignoring MSAL-reserved scopes from GRAPH_SCOPES: {}", ", ".join(removed)
         )
     return filtered
-
-
-def _build_msal_app() -> msal.ConfidentialClientApplication:
-    settings = get_settings()
-    return msal.ConfidentialClientApplication(
-        client_id=settings.azure_client_id,
-        client_credential=settings.azure_client_secret,
-        authority=f"https://login.microsoftonline.com/{settings.azure_tenant_id}",
-    )
 
 
 def get_auth_url(state: str) -> str:

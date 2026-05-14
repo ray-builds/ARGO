@@ -4,7 +4,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Optional
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,6 +41,21 @@ class Settings(BaseSettings):
     azure_client_secret: str = ""
     graph_scopes: str = (
         "Mail.Read Mail.Send Mail.ReadWrite Calendars.Read User.Read offline_access"
+    )
+    # TLS for MSAL / requests → login.microsoftonline.com (fixes SSLCertVerificationError
+    # on some Windows or corporate-proxy setups when set to a PEM that includes your root CA)
+    ssl_ca_bundle: Optional[str] = Field(
+        default=None,
+        description="Path to a PEM CA bundle; applied as REQUESTS_CA_BUNDLE for Azure AD discovery.",
+    )
+    # Never disable in production — vulnerable to MITM. Local dev escape hatch only.
+    msal_ssl_verify: bool = Field(
+        default=True,
+        description="Verify TLS certificates for MSAL HTTP calls. Set false in .env only for local dev.",
+    )
+    use_os_ssl_trust: bool = Field(
+        default=True,
+        description="Use OS certificate store for Python TLS (truststore). Fixes many Windows/corporate SSL errors.",
     )
 
     # Team

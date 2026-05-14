@@ -55,6 +55,11 @@ def configure_logging() -> None:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """FastAPI lifespan context: manages startup and shutdown side-effects."""
     configure_logging()
+    # Before outbound HTTPS (MSAL, Graph): OS trust store — fixes SSL on Windows / many proxies
+    from app.core.ssl_trust import inject_os_ssl_context
+
+    inject_os_ssl_context()
+
     logger.info("ARGO starting up...")
 
     await init_db()

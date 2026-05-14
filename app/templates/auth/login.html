@@ -119,9 +119,7 @@
 
             {% if error %}
             <div class="error-msg">{{ error }}</div>
-            {% endif %}
-
-            {% if request is defined and request.query_params.get('error') %}
+            {% elif request is defined and request.query_params.get('error') %}
             <div class="error-msg">Authentication failed. Please try again or contact IT support.</div>
             {% endif %}
 

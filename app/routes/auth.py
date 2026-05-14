@@ -9,6 +9,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
+from requests.exceptions import SSLError
+
 from app.config import get_settings
 from app.core.database import get_db_session
 from app.core.graph_client import get_auth_url, exchange_code_for_token
@@ -25,7 +27,23 @@ async def login_page(request: Request) -> HTMLResponse:
     if request.session.get("user"):
         return RedirectResponse(url="/", status_code=302)
 
-    return templates.TemplateResponse("auth/login.html", {"request": request})
+    err_q = request.query_params.get("error")
+    error_msg: str | None = None
+    if err_q == "ssl_verify":
+        error_msg = (
+            "TLS verification failed when contacting Microsoft login. "
+            "ARGO enables the OS certificate store at startup (truststore). "
+            "If this still appears: install dependencies (pip install -r requirements.txt), "
+            "set SSL_CA_BUNDLE to a PEM that includes your organisation root CA, "
+            "or as a last resort MSAL_SSL_VERIFY=false for local dev only (insecure)."
+        )
+    elif err_q == "auth_failed":
+        error_msg = "Authentication failed. Please try again or contact IT support."
+
+    return templates.TemplateResponse(
+        "auth/login.html",
+        {"request": request, "error": error_msg},
+    )
 
 
 @router.get("/login/microsoft")
@@ -35,7 +53,15 @@ async def login_microsoft(request: Request) -> RedirectResponse:
     state = secrets.token_urlsafe(32)
     request.session["oauth_state"] = state
 
-    auth_url = get_auth_url(state=state)
+    try:
+        auth_url = get_auth_url(state=state)
+    except SSLError as exc:
+        logger.warning(
+            "Microsoft OAuth SSL error (configure SSL_CA_BUNDLE or dev-only MSAL_SSL_VERIFY): {}",
+            exc,
+        )
+        return RedirectResponse(url="/login?error=ssl_verify", status_code=302)
+
     logger.info("Redirecting to Microsoft login")
     return RedirectResponse(url=auth_url, status_code=302)
 
