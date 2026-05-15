@@ -96,6 +96,27 @@ def register_section8_jobs() -> None:
     logger.info("Section 8 job registered: central bank tracker weekly Sun 20:00 {}", _TIMEZONE)
 
 
+def register_section9_jobs() -> None:
+    """Register Section 9 morning briefing schedule."""
+    try:
+        from app.services.morning_briefing_service import morning_brief_job
+    except ImportError as exc:
+        logger.warning("section 9 scheduler unavailable: {}", exc)
+        return
+
+    scheduler = get_scheduler()
+    scheduler.add_job(
+        morning_brief_job,
+        trigger=CronTrigger(hour=6, minute=0, timezone="Asia/Dubai"),
+        id="section9_morning_brief",
+        name="Section 9 Morning Brief",
+        replace_existing=True,
+        misfire_grace_time=600,
+        coalesce=True,
+    )
+    logger.info("Section 9 job registered: daily 06:00 Asia/Dubai")
+
+
 def register_auto_sync_jobs() -> None:
     """Register Graph fallback-sync and subscription-renewal background jobs."""
     from apscheduler.triggers.interval import IntervalTrigger

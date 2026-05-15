@@ -98,6 +98,8 @@ def _build_commentary(
     portfolio: dict[str, Any],
 ) -> str:
     surprise = abs(actual - consensus)
+    surprise_ratio = (surprise / abs(consensus)) if consensus else 0.0
+    confidence = "HIGH" if surprise_ratio >= 0.15 else "MED"
     return "\n".join(
         [
             f"## {indicator} - {actual} vs {consensus} consensus [{surprise_dir} SURPRISE]",
@@ -115,7 +117,7 @@ def _build_commentary(
             "",
             f"**Next catalyst:** follow-up prints and central bank guidance (prior={prior}, surprise={round(surprise, 3)}).",
             "",
-            "**Confidence in this assessment:** MED - real-time directional read; verify against live position greeks.",
+            f"**Confidence in this assessment:** {confidence} - real-time directional read; verify against live position greeks.",
             "",
             f"Portfolio context: {json.dumps(portfolio)[:400]}",
         ]
@@ -250,4 +252,3 @@ async def track_central_bank_language() -> dict[str, dict[str, Any]]:
         ]
         output[bank] = _simple_cb_shift(current, historical)
     return output
-

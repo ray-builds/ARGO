@@ -207,13 +207,13 @@ async def store_conflicts(conflicts: list[dict[str, Any]], db: AsyncSession | No
         return
     for conflict in conflicts:
         position = conflict.get("position", {}) or {}
-        research = conflict.get("research", {}) or {}
+        research_id = conflict.get("research_id")
         row = PortfolioResearchConflict(
-            research_instrument=(research.get("instruments_mentioned") or [None])[0],
+            research_id=research_id,
             position_instrument=str(position.get("instrument") or "UNKNOWN"),
             conflict_type=str(conflict.get("conflict_type") or "UNKNOWN"),
             severity=str(conflict.get("severity") or "MED"),
-            conflict_json=json.dumps(conflict, default=str),
+            resolved=False,
         )
         db.add(row)
     await db.commit()
@@ -280,4 +280,3 @@ async def check_research_against_portfolio(
             await send_teams_alert(format_conflict_alert(conflicts))
 
     return conflicts
-

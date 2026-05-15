@@ -2327,42 +2327,42 @@ async def test_economic_release_commentary_under_10s():
 Work through these in order. Check each off before moving to the next.
 
 ### Phase 1 — Foundation (Week 1-2)
-- [ ] Section 0: Replace ALL system prompts with upgraded versions
-- [ ] Section 1.1: Implement Graph webhook subscription endpoint
+- [x] Section 0: Replace ALL system prompts with upgraded versions
+- [x] Section 1.1: Implement Graph webhook subscription endpoint
 - [ ] Section 1.2: Remove manual sync button; implement WebSocket inbox updates
-- [ ] Section 1.3: Subscription renewal background job
-- [ ] Section 2: OneDrive service + folder structure + auto-archiving
+- [x] Section 1.3: Subscription renewal background job
+- [x] Section 2: OneDrive service + folder structure + auto-archiving
 - [ ] Run all Section 1-2 tests → all pass
 
 ### Phase 2 — Reply & Meetings (Week 3-4)
 - [ ] Section 3: Email reply button + AI suggestion endpoint + React UI
-- [ ] Section 4: Teams recording watcher + VTT parser + Whisper fallback
-- [ ] Section 4: Meeting intelligence prompt + summary storage
+- [x] Section 4: Teams recording watcher + VTT parser + Whisper fallback
+- [x] Section 4: Meeting intelligence prompt + summary storage
 - [ ] Section 4: Meetings tab in frontend
 - [ ] Run all Section 3-4 tests → all pass
 
 ### Phase 3 — WhatsApp & Research (Week 5-6)
-- [ ] Section 5: Choose WhatsApp integration method (Bridge vs Meta API)
-- [ ] Section 5: Trade pattern detection + compliance archiving
-- [ ] Section 5: Weekly WhatsApp report generation + delivery
-- [ ] Section 6: Research Lake auto-ingestion (RSS + email attachments + NewsAPI)
-- [ ] Section 6: Contradiction detection engine
-- [ ] Section 6: FRED + Yahoo Finance data helpers
-- [ ] Run all Section 5-6 tests → all pass
+- [x] Section 5: Choose WhatsApp integration method (Bridge vs Meta API)
+- [x] Section 5: Trade pattern detection + compliance archiving
+- [x] Section 5: Weekly WhatsApp report generation + delivery
+- [x] Section 6: Research Lake auto-ingestion (RSS + email attachments + NewsAPI)
+- [x] Section 6: Contradiction detection engine
+- [x] Section 6: FRED + Yahoo Finance data helpers
+- [x] Run all Section 5-6 tests → all pass
 
 ### Phase 4 — Intelligence Layer (Week 7-8)
-- [ ] Section 7: Portfolio intelligence with Yahoo Finance prices
-- [ ] Section 7: Pre-built scenario analysis templates
+- [x] Section 7: Portfolio intelligence with Yahoo Finance prices
+- [x] Section 7: Pre-built scenario analysis templates
 - [ ] Section 7: Portfolio dashboard frontend
-- [ ] Section 8: Economic calendar + impact assessment
-- [ ] Section 8: Central bank language tracker
-- [ ] Section 8: On-release commentary + Teams/WhatsApp alerts
-- [ ] Section 9: Morning briefing full aggregation pipeline
-- [ ] Run all Section 7-9 tests → all pass
+- [x] Section 8: Economic calendar + impact assessment
+- [x] Section 8: Central bank language tracker
+- [x] Section 8: On-release commentary + Teams/WhatsApp alerts
+- [x] Section 9: Morning briefing full aggregation pipeline
+- [x] Run all Section 7-9 tests → all pass
 
 ### Phase 5 — Quality Gate
-- [ ] Section 12: All AI output quality tests pass
-- [ ] Section 12: All performance benchmarks pass
+- [x] Section 12: All AI output quality tests pass
+- [x] Section 12: All performance benchmarks pass
 - [ ] Section 12: Integration tests pass against staging
 - [ ] Security review: all webhook secrets validated, no env vars in code
 - [ ] Database migration tested on staging RDS

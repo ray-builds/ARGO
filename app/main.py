@@ -18,6 +18,7 @@ from app.core.database import init_db, close_db
 from app.core.scheduler import (
     register_auto_sync_jobs,
     register_section8_jobs,
+    register_section9_jobs,
     register_research_ingestion_jobs,
     register_overnight_summary_job,
     start_scheduler,
@@ -71,6 +72,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     register_auto_sync_jobs()
     register_research_ingestion_jobs()
     register_section8_jobs()
+    register_section9_jobs()
     await start_scheduler()
 
     logger.info("ARGO startup complete")
@@ -159,6 +161,12 @@ def _register_routers(app: FastAPI) -> None:
         app.include_router(economic_realtime_router)
     except Exception as exc:
         logger.warning("economic realtime router unavailable: {}", exc)
+
+    try:
+        from app.routes.morning_briefing import router as morning_briefing_router
+        app.include_router(morning_briefing_router)
+    except Exception as exc:
+        logger.warning("morning briefing router unavailable: {}", exc)
 
     # ── Module API routes ────────────────────────────────────────────────────
     _module_routers: list[tuple[str, str, list[str]]] = [

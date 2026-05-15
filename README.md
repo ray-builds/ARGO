@@ -169,6 +169,15 @@ curl http://localhost:3001/health
 | `WHATSAPP_BRIDGE_URL`        | no       | URL of the `whatsapp-web.js` bridge (default `http://localhost:3001`) |
 | `BRIDGE_ALLOWED_GROUP_IDS`   | no       | Comma-separated WhatsApp group IDs allowed to forward         |
 | `BRIDGE_ALLOWED_GROUP_NAMES` | no       | Comma-separated group names allowed to forward (fallback)      |
+| `NEWSAPI_KEY`                | no       | NewsAPI key for Section 6/9 ingestion                         |
+| `FRED_API_KEY`               | no       | FRED API key for Section 6/8/9 macro series                   |
+| `ALPHA_VANTAGE_KEY`          | no       | Alpha Vantage key for alternative market data                 |
+| `TRADING_ECONOMICS_KEY`      | no       | TradingEconomics API key for economic calendar                |
+| `GRAPH_EMAIL_WEBHOOK_SECRET` | no       | Graph email webhook validation secret                         |
+| `GRAPH_CALENDAR_WEBHOOK_SECRET` | no    | Graph calendar webhook validation secret                      |
+| `GRAPH_RECORDINGS_WEBHOOK_SECRET` | no  | Graph recordings webhook validation secret                    |
+| `META_WHATSAPP_TOKEN`        | no       | Meta Cloud API token (if not using bridge mode)              |
+| `META_PHONE_NUMBER_ID`       | no       | Meta Cloud API phone number ID                                |
 | `SERPER_API_KEY`             | no       | Serper.dev API key for news search in overnight summary       |
 | `OVERNIGHT_SUMMARY_CRON`     | no       | APScheduler cron expression for summary generation            |
 | `OVERNIGHT_SUMMARY_TIMEZONE` | no       | Timezone for the overnight summary scheduler                  |

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # App
     environment: str = "development"
     app_base_url: str = "http://localhost:8000"
+    argo_base_url: str = ""
     app_host: str = "0.0.0.0"
     app_port: int = 8000
     secret_key: str = "change-me-in-production"
@@ -34,6 +35,10 @@ class Settings(BaseSettings):
 
     # OpenAI (optional — Whisper + embeddings)
     openai_api_key: Optional[str] = None
+    newsapi_key: str = ""
+    fred_api_key: str = ""
+    alpha_vantage_key: str = ""
+    trading_economics_key: str = ""
 
     # Microsoft Azure / Graph
     azure_tenant_id: str = ""
@@ -69,6 +74,13 @@ class Settings(BaseSettings):
     pm_whatsapp_number: str = ""
     whatsapp_bridge_secret: str = ""
     whatsapp_bridge_url: str = ""
+    meta_whatsapp_token: str = ""
+    meta_phone_number_id: str = ""
+
+    # Graph webhook secrets
+    graph_email_webhook_secret: str = "ARGO_EMAIL_WEBHOOK_SECRET"
+    graph_calendar_webhook_secret: str = "ARGO_CALENDAR_WEBHOOK_SECRET"
+    graph_recordings_webhook_secret: str = "ARGO_RECORDINGS_SECRET"
 
     # Serper
     serper_api_key: str = ""
@@ -127,7 +139,8 @@ class Settings(BaseSettings):
     # Convenience: redirect URI derived from app_base_url
     @property
     def azure_redirect_uri(self) -> str:
-        return f"{self.app_base_url}/auth/callback"
+        base = self.argo_base_url or self.app_base_url
+        return f"{base}/auth/callback"
 
 
 @lru_cache(maxsize=1)

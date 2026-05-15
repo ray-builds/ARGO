@@ -61,7 +61,8 @@ async def register_subscriptions(
     that already have an unexpired subscription for this user.
     """
     settings = get_settings()
-    notification_url = f"{settings.app_base_url}/api/webhooks/graph"
+    base_url = settings.argo_base_url or settings.app_base_url
+    notification_url = f"{base_url}/api/webhooks/graph"
     created: list[GraphSubscription] = []
 
     async with httpx.AsyncClient(timeout=30.0) as client:

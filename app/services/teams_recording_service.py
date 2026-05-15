@@ -404,10 +404,11 @@ async def register_recordings_watcher(
     from app.config import get_settings
 
     settings = get_settings()
+    base_url = settings.argo_base_url or settings.app_base_url
     expires = datetime.now(timezone.utc) + timedelta(minutes=4230)
     payload = {
         "changeType": "created,updated",
-        "notificationUrl": f"{settings.app_base_url}/api/webhooks/onedrive-recordings",
+        "notificationUrl": f"{base_url}/api/webhooks/onedrive-recordings",
         "resource": f"/me/drive/root:/{RECORDINGS_FOLDER_PATH}:/children",
         "expirationDateTime": expires.isoformat().replace("+00:00", "Z"),
         "clientState": RECORDINGS_CLIENT_STATE,
