@@ -234,6 +234,66 @@ class GraphClient:
             response.raise_for_status()
             logger.info("Email sent: {} → {} | {!r}", from_email, to_email, subject)
 
+    async def create_reply_draft(
+        self,
+        user_email: str,
+        message_id: str,
+        body_html: str,
+        comment: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a Graph reply draft for an existing message.
+
+        Args:
+            user_email: Mailbox owner.
+            message_id: Graph message ID being replied to.
+            body_html: HTML body of the draft reply.
+            comment: Optional plain-text comment sent in the createReply call.
+
+        Returns:
+            The Graph draft message JSON (includes ``id``).
+        """
+        # Step 1: createReply scaffolds the draft.
+        create_url = (
+            f"{self.BASE}/users/{user_email}/messages/{message_id}/createReply"
+        )
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            payload: dict[str, Any] = {}
+            if comment is not None:
+                payload["comment"] = comment
+            response = await client.post(create_url, headers=self._headers, json=payload)
+            response.raise_for_status()
+            draft = response.json()
+            draft_id = draft.get("id")
+
+            # Step 2: patch the body so the draft holds our AI text.
+            if draft_id and body_html:
+                patch_url = f"{self.BASE}/users/{user_email}/messages/{draft_id}"
+                patch_payload = {
+                    "body": {"contentType": "HTML", "content": body_html}
+                }
+                patch_response = await client.patch(
+                    patch_url, headers=self._headers, json=patch_payload
+                )
+                patch_response.raise_for_status()
+                draft = patch_response.json() or draft
+            return draft
+
+    async def send_reply(
+        self,
+        user_email: str,
+        message_id: str,
+        body_html: str,
+    ) -> None:
+        """Send a reply to ``message_id`` via Microsoft Graph's reply endpoint."""
+        url = f"{self.BASE}/users/{user_email}/messages/{message_id}/reply"
+        payload = {"message": {"body": {"contentType": "HTML", "content": body_html}}}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, headers=self._headers, json=payload)
+            if response.status_code == 401:
+                logger.warning("Access token expired for {}", user_email)
+            response.raise_for_status()
+            logger.info("Reply sent for message {} by {}", message_id, user_email)
+
     async def archive_message(self, user_email: str, message_id: str) -> None:
         """Move a message to the Archive folder.
 

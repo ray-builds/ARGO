@@ -100,3 +100,58 @@ async def list_scenarios(
     async with get_db_session() as db:
         service = PortfolioIntelligenceService(db)
         return await service.list_scenarios(limit)
+
+
+@router.get("/prices")
+async def get_portfolio_prices_endpoint(
+    portfolio_name: str = "main",
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Fetch Yahoo Finance prices for the current portfolio positions."""
+    from app.modules.portfolio_intelligence.service import PortfolioIntelligenceService
+    from app.services.market_data_service import get_portfolio_prices
+    from app.core.database import get_db_session
+
+    async with get_db_session() as db:
+        service = PortfolioIntelligenceService(db)
+        positions = await service.list_positions(portfolio_name)
+
+    payload = [
+        {"instrument": p.instrument, "yahoo_ticker": None}
+        for p in positions
+    ]
+    prices = await get_portfolio_prices(payload)
+    return {"portfolio_name": portfolio_name, "prices": prices}
+
+
+@router.get("/scenarios/templates")
+async def get_scenario_templates(
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Return Section 7 prebuilt scenario template list."""
+    from app.modules.portfolio_intelligence.service import PortfolioIntelligenceService
+    from app.core.database import get_db_session
+
+    async with get_db_session() as db:
+        service = PortfolioIntelligenceService(db)
+        templates = await service.get_prebuilt_scenarios()
+    return {"templates": templates}
+
+
+@router.post("/scenarios/prebuilt")
+async def run_prebuilt_scenario(
+    body: dict,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Run one prebuilt Section 7 scenario template."""
+    from app.modules.portfolio_intelligence.service import PortfolioIntelligenceService
+    from app.core.database import get_db_session
+
+    scenario_name = str(body.get("scenario_name") or "").strip()
+    if not scenario_name:
+        return {"error": "scenario_name is required"}
+
+    async with get_db_session() as db:
+        service = PortfolioIntelligenceService(db)
+        result = await service.run_prebuilt_scenario(scenario_name)
+    return result

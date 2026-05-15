@@ -121,7 +121,7 @@ def normalize_meeting_intelligence_json(raw: dict[str, Any]) -> dict[str, Any]:
     for a in items:
         if not isinstance(a, dict):
             continue
-        desc = a.get("description") or a.get("text") or ""
+        desc = a.get("task") or a.get("description") or a.get("text") or ""
         fixed_items.append(
             {
                 "description": desc,

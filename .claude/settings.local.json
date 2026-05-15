@@ -3,7 +3,11 @@
     "allow": [
       "Bash(python -m pytest tests/test_auto_sync.py -x -q)",
       "Bash(python -m pytest tests/test_auto_sync.py -q)",
-      "Bash(python -m pytest -q)"
+      "Bash(python -m pytest -q)",
+      "Bash(python -m pytest tests/test_onedrive.py tests/test_auto_sync.py -q)",
+      "Bash(python -m pytest tests/test_email_reply.py tests/test_onedrive.py tests/test_auto_sync.py -q)",
+      "Bash(python -m pytest tests/test_email_reply.py::test_reply_tone_affects_output -q)",
+      "Bash(python -m pytest tests/test_teams_recordings.py -q)"
     ]
   }
 }

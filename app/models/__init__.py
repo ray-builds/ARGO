@@ -11,6 +11,9 @@ from app.models.research import ResearchItem
 from app.models.economic import EconomicEvent
 from app.models.chat import ChatConversation, ChatMessage
 from app.models.graph_subscription import GraphSubscription
+from app.models.whatsapp import WhatsAppMessage
+from app.models.research_source import ResearchSourceRecord
+from app.models.portfolio_research_conflict import PortfolioResearchConflict
 
 __all__ = [
     "Base", "TimestampMixin",
@@ -18,5 +21,6 @@ __all__ = [
     "Meeting", "MeetingActionItem", "Document", "DocumentChunk",
     "Position", "Scenario", "Client", "ClientInteraction",
     "ResearchItem", "EconomicEvent", "ChatConversation", "ChatMessage",
-    "GraphSubscription",
+    "GraphSubscription", "WhatsAppMessage", "ResearchSourceRecord",
+    "PortfolioResearchConflict",
 ]

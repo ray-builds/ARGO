@@ -75,6 +75,27 @@ def register_econ_alert_job() -> None:
     logger.info("Econ alert job registered: daily 07:00 {}", _TIMEZONE)
 
 
+def register_section8_jobs() -> None:
+    """Register Section 8 weekly central bank language tracker."""
+    try:
+        from app.modules.economic_intelligence.scheduler_job import run_central_bank_tracker
+    except ImportError as exc:
+        logger.warning("section 8 scheduler unavailable: {}", exc)
+        return
+
+    scheduler = get_scheduler()
+    scheduler.add_job(
+        run_central_bank_tracker,
+        trigger=CronTrigger(day_of_week="sun", hour=20, minute=0, timezone=_TIMEZONE),
+        id="section8_central_bank_tracker",
+        name="Section 8 Central Bank Tracker",
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=True,
+    )
+    logger.info("Section 8 job registered: central bank tracker weekly Sun 20:00 {}", _TIMEZONE)
+
+
 def register_auto_sync_jobs() -> None:
     """Register Graph fallback-sync and subscription-renewal background jobs."""
     from apscheduler.triggers.interval import IntervalTrigger
@@ -110,6 +131,41 @@ def register_auto_sync_jobs() -> None:
     logger.info("Auto-sync jobs registered: fallback sync (5m), subscription renewal (6h)")
 
 
+def register_research_ingestion_jobs() -> None:
+    """Register Section 6 research ingestion background jobs."""
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    try:
+        from app.modules.research_lake.scheduler_job import (
+            run_research_news_ingestion,
+            run_research_rss_ingestion,
+        )
+    except ImportError as exc:
+        logger.warning("research ingestion scheduler unavailable: {}", exc)
+        return
+
+    scheduler = get_scheduler()
+    scheduler.add_job(
+        run_research_rss_ingestion,
+        trigger=IntervalTrigger(hours=6),
+        id="research_rss_ingestion",
+        name="Section 6 RSS Ingestion",
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        run_research_news_ingestion,
+        trigger=IntervalTrigger(hours=1),
+        id="research_news_ingestion",
+        name="Section 6 News Ingestion",
+        replace_existing=True,
+        misfire_grace_time=300,
+        coalesce=True,
+    )
+    logger.info("Section 6 jobs registered: RSS (6h), News (1h)")
+
+
 async def start_scheduler() -> None:
     """Start the APScheduler. Called during FastAPI lifespan startup."""
     scheduler = get_scheduler()
@@ -139,13 +195,12 @@ def get_scheduler_status() -> dict[str, Any]:
     scheduler = get_scheduler()
     jobs: list[dict[str, Any]] = []
     for job in scheduler.get_jobs():
+        next_run = getattr(job, "next_run_time", None)
         jobs.append(
             {
                 "id": job.id,
                 "name": job.name,
-                "next_run_time": (
-                    job.next_run_time.isoformat() if job.next_run_time else None
-                ),
+                "next_run_time": (next_run.isoformat() if next_run else None),
             }
         )
     return {"running": scheduler.running, "jobs": jobs}

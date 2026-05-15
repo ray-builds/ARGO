@@ -113,9 +113,47 @@
     </div>
 </div>
 
+<div id="reply-panel" class="reply-panel" style="display:none;">
+    <div class="reply-panel__inner">
+        <div class="reply-panel__header">
+            <strong id="reply-target">Reply</strong>
+            <button class="btn btn-sm btn-ghost" onclick="closeReplyPanel()">×</button>
+        </div>
+        <div id="reply-config">
+            <label>Tone</label>
+            <select id="reply-tone">
+                <option value="COLLEGIAL_PEER">Collegial (Peer)</option>
+                <option value="FORMAL_CLIENT">Formal (Client)</option>
+                <option value="DIRECT_INTERNAL">Direct (Internal)</option>
+                <option value="BRIEF_ACKNOWLEDGMENT">Brief Acknowledgment</option>
+            </select>
+            <label>Additional context for AI (optional)</label>
+            <textarea id="reply-context" rows="3"
+                placeholder="e.g. 'we agreed on this in last Thursday's call'"></textarea>
+            <button class="btn btn-primary" onclick="generateReplyDraft()">Generate AI Draft</button>
+        </div>
+        <div id="reply-generating" style="display:none;">Drafting reply…</div>
+        <div id="reply-editing" style="display:none;">
+            <div id="reply-flags" class="reply-panel__flags"></div>
+            <textarea id="reply-body" rows="14" class="reply-panel__editor"></textarea>
+            <div class="reply-panel__actions">
+                <button class="btn btn-ghost" onclick="generateReplyDraft()">Regenerate</button>
+                <button class="btn btn-primary" onclick="sendReply()">Send Reply</button>
+            </div>
+        </div>
+        <div id="reply-sent" style="display:none; color:var(--success, #10b981);">Reply sent ✓</div>
+    </div>
+</div>
+
 <style>
 .subject-preview { font-weight:600; font-size:13px; }
 .body-preview    { font-size:12px; color:var(--text-secondary); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:400px; }
+.reply-panel { position:fixed; top:0; right:0; width:480px; max-width:90vw; height:100vh; background:var(--bg-elev, #fff); border-left:1px solid var(--border, #e5e7eb); box-shadow:-4px 0 16px rgba(0,0,0,0.08); z-index:1000; overflow-y:auto; }
+.reply-panel__inner { padding:20px; display:flex; flex-direction:column; gap:12px; }
+.reply-panel__header { display:flex; justify-content:space-between; align-items:center; }
+.reply-panel__editor { width:100%; font-family:inherit; font-size:13px; padding:8px; }
+.reply-panel__flags .flag-warning { color:#b45309; font-size:12px; }
+.reply-panel__actions { display:flex; gap:8px; justify-content:flex-end; }
 </style>
 {% endblock %}
 
@@ -129,6 +167,76 @@ document.addEventListener('DOMContentLoaded', async function () {
     await loadEmails();
     connectRealtimeInbox();
 });
+
+// ── Reply panel ─────────────────────────────────────────────────────────────
+let activeReplyEmailId = null;
+
+function _setReplyStep(step) {
+    ['config', 'generating', 'editing', 'sent'].forEach(function (s) {
+        const el = document.getElementById('reply-' + s);
+        if (el) el.style.display = (s === step) ? 'block' : 'none';
+    });
+}
+
+function openReplyPanel(emailId) {
+    activeReplyEmailId = emailId;
+    const email = allEmails.find(function (e) { return e.id === emailId; });
+    document.getElementById('reply-target').textContent =
+        email ? `Replying to: ${email.sender_name || email.sender_email} — ${email.subject || ''}` : 'Reply';
+    document.getElementById('reply-context').value = '';
+    document.getElementById('reply-body').value = '';
+    document.getElementById('reply-flags').innerHTML = '';
+    document.getElementById('reply-panel').style.display = 'block';
+    _setReplyStep('config');
+}
+
+function closeReplyPanel() {
+    document.getElementById('reply-panel').style.display = 'none';
+    activeReplyEmailId = null;
+}
+
+async function generateReplyDraft() {
+    if (!activeReplyEmailId) return;
+    _setReplyStep('generating');
+    const tone = document.getElementById('reply-tone').value;
+    const userContext = document.getElementById('reply-context').value;
+    try {
+        const r = await fetch(`/api/v1/emails/${activeReplyEmailId}/reply-suggestion`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ tone: tone, user_context: userContext }),
+        });
+        if (!r.ok) throw new Error('suggestion failed');
+        const data = await r.json();
+        document.getElementById('reply-body').value = data.suggestion.body || '';
+        const flagsEl = document.getElementById('reply-flags');
+        flagsEl.innerHTML = (data.suggestion.flags || [])
+            .map(function (f) { return `<div class="flag-warning">⚠️ ${f}</div>`; })
+            .join('');
+        _setReplyStep('editing');
+    } catch (_) {
+        _setReplyStep('config');
+        alert('Could not draft a reply. Try again.');
+    }
+}
+
+async function sendReply() {
+    if (!activeReplyEmailId) return;
+    const body = document.getElementById('reply-body').value;
+    if (!body || !body.trim()) { alert('Draft is empty.'); return; }
+    try {
+        const r = await fetch(`/api/v1/emails/${activeReplyEmailId}/send-reply`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ body: body }),
+        });
+        if (!r.ok) throw new Error('send failed');
+        _setReplyStep('sent');
+        setTimeout(closeReplyPanel, 1500);
+    } catch (_) {
+        alert('Send failed.');
+    }
+}
 
 // Realtime inbox: server pushes NEW_EMAIL frames via WebSocket so there is
 // no need for a manual Synchronize button.
@@ -197,6 +305,8 @@ function renderTable(emails) {
                     ${formatRelativeTime(email.received_at)}
                 </td>
                 <td onclick="event.stopPropagation();">
+                    <button class="btn btn-sm btn-primary" title="Reply with AI assistance"
+                        onclick="openReplyPanel('${email.id}')">↩ Reply</button>
                     <button class="btn btn-sm btn-ghost" onclick="archiveEmail('${email.id}')">Archive</button>
                 </td>
             </tr>

@@ -19,6 +19,25 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  whatsapp-bridge:
+    build:
+      context: ./whatsapp-bridge
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      - ARGO_BACKEND_URL=http://app:8000
+      - BRIDGE_SECRET=${WHATSAPP_BRIDGE_SECRET}
+      - BRIDGE_PORT=3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - wa_auth:/bridge/.wwebjs_auth
+      - wa_cache:/bridge/.wwebjs_cache
+    depends_on:
+      - app
+    restart: unless-stopped
+
   db:
     image: postgres:16-alpine
     environment:
@@ -46,3 +65,5 @@ services:
 
 volumes:
   pgdata:
+  wa_auth:
+  wa_cache:

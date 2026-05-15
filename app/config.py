@@ -67,6 +67,8 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_whatsapp_from: str = "whatsapp:+14155238886"
     pm_whatsapp_number: str = ""
+    whatsapp_bridge_secret: str = ""
+    whatsapp_bridge_url: str = ""
 
     # Serper
     serper_api_key: str = ""

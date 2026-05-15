@@ -23,6 +23,16 @@ class EmailTagPatchBody(BaseModel):
     tag: str = Field(..., min_length=1, max_length=32)
 
 
+class ReplySuggestionBody(BaseModel):
+    tone: str = Field(..., min_length=1, max_length=32)
+    user_context: str | None = Field(default=None, max_length=2000)
+
+
+class SendReplyBody(BaseModel):
+    body: str = Field(..., min_length=1)
+    subject: str | None = Field(default=None, max_length=512)
+
+
 # ── API endpoints ─────────────────────────────────────────────────────────────
 
 @router.get("/sync", response_class=JSONResponse)
@@ -167,6 +177,76 @@ async def mark_email_read_endpoint(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Email not found")
 
     return _email_to_dict(email)
+
+
+@router.post("/{email_id}/reply-suggestion", response_class=JSONResponse)
+async def reply_suggestion(
+    email_id: str,
+    body: ReplySuggestionBody,
+    current_user: User = Depends(get_current_user),
+    access_token: str = Depends(get_access_token),
+) -> dict[str, Any]:
+    """Generate an AI reply draft for ``email_id`` and create a Graph draft.
+
+    Returns ``{"suggestion": {subject, body, tone_used, flags}, "graph_draft_id": str|None}``.
+    """
+    from app.core.database import get_db_session
+    from app.modules.email_intelligence.reply_service import (
+        EmailReplyService, VALID_TONES,
+    )
+
+    if body.tone not in VALID_TONES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid tone. Must be one of: {', '.join(VALID_TONES)}",
+        )
+
+    async with get_db_session() as db:
+        service = EmailReplyService(db)
+        try:
+            result = await service.generate_suggestion(
+                email_id=email_id,
+                user_email=current_user.email,
+                access_token=access_token,
+                reply_author_name=current_user.display_name,
+                reply_author_title=current_user.role or "ARP Global Capital",
+                tone=body.tone,
+                user_context=body.user_context,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND
+                if "not found" in str(exc).lower()
+                else status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            )
+    return result
+
+
+@router.post("/{email_id}/send-reply", response_class=JSONResponse)
+async def send_reply_endpoint(
+    email_id: str,
+    body: SendReplyBody,
+    current_user: User = Depends(get_current_user),
+    access_token: str = Depends(get_access_token),
+) -> dict[str, Any]:
+    """Send a reply via Microsoft Graph ``/reply``."""
+    from app.core.database import get_db_session
+    from app.modules.email_intelligence.reply_service import EmailReplyService
+
+    async with get_db_session() as db:
+        service = EmailReplyService(db)
+        try:
+            result = await service.send_reply(
+                email_id=email_id,
+                user_email=current_user.email,
+                access_token=access_token,
+                body=body.body,
+                subject=body.subject,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    return result
 
 
 @router.patch("/{email_id}/tag", response_class=JSONResponse)

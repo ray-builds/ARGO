@@ -119,6 +119,30 @@ async def process_incoming_email(
     except Exception as exc:  # noqa: BLE001
         logger.debug("realtime broadcast skipped: {}", exc)
 
+    # Auto-archive to OneDrive (non-blocking on failure).
+    try:
+        from app.services.onedrive_service import OneDriveService, safe_archive
+
+        onedrive = OneDriveService(access_token)
+        await safe_archive(
+            onedrive.archive_email(
+                {
+                    "id": email_obj.graph_message_id,
+                    "subject": email_obj.subject,
+                    "sender_email": email_obj.sender_email,
+                    "sender_name": email_obj.sender_name,
+                    "body_preview": email_obj.body_preview,
+                    "received_at": email_obj.received_at.isoformat() if email_obj.received_at else None,
+                    "timestamp": email_obj.received_at.isoformat() if email_obj.received_at else None,
+                    "tag": email_obj.tag,
+                    "relevance_score": email_obj.relevance_score,
+                    "is_from_ceo": email_obj.is_from_ceo,
+                }
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("OneDrive auto-archive skipped: {}", exc)
+
     return email_obj
 
 

@@ -129,6 +129,19 @@ To run migrations inside the container after first boot:
 docker-compose exec app alembic upgrade head
 ```
 
+To run Section 5 Option B (WhatsApp bridge), the compose stack also starts
+`whatsapp-bridge` on port `3001`. On first boot, open bridge logs and scan the QR:
+
+```bash
+docker-compose logs -f whatsapp-bridge
+```
+
+Health check:
+
+```bash
+curl http://localhost:3001/health
+```
+
 ---
 
 ## Environment Variables
@@ -152,6 +165,10 @@ docker-compose exec app alembic upgrade head
 | `TWILIO_AUTH_TOKEN`          | no       | Twilio auth token                                             |
 | `TWILIO_WHATSAPP_FROM`       | no       | Twilio sandbox/production WhatsApp number                     |
 | `PM_WHATSAPP_NUMBER`         | no       | Portfolio manager's WhatsApp number for overnight summary     |
+| `WHATSAPP_BRIDGE_SECRET`     | no       | Shared secret between bridge and `/api/whatsapp/incoming`     |
+| `WHATSAPP_BRIDGE_URL`        | no       | URL of the `whatsapp-web.js` bridge (default `http://localhost:3001`) |
+| `BRIDGE_ALLOWED_GROUP_IDS`   | no       | Comma-separated WhatsApp group IDs allowed to forward         |
+| `BRIDGE_ALLOWED_GROUP_NAMES` | no       | Comma-separated group names allowed to forward (fallback)      |
 | `SERPER_API_KEY`             | no       | Serper.dev API key for news search in overnight summary       |
 | `OVERNIGHT_SUMMARY_CRON`     | no       | APScheduler cron expression for summary generation            |
 | `OVERNIGHT_SUMMARY_TIMEZONE` | no       | Timezone for the overnight summary scheduler                  |
