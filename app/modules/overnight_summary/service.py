@@ -277,7 +277,7 @@ class OvernightSummaryService:
             results = await self.serper.search_news(
                 query="macro markets overnight rates FX equities",
                 num_results=10,
-                date_range="d",
+                # date_range="d",
             )
             return [
                 {
@@ -336,7 +336,7 @@ class OvernightSummaryService:
         briefing_date: date, ai_result: dict[str, Any]
     ) -> str:
         """Compose the WhatsApp plain-text message from AI result."""
-        date_str = briefing_date.strftime("%a %-d %b %Y") if hasattr(briefing_date, "strftime") else str(briefing_date)
+        date_str = briefing_date.strftime("%a %d %b %Y") if hasattr(briefing_date, "strftime") else str(briefing_date)
 
         lines: list[str] = [
             f"🌅 *ARP Global Capital — Morning Briefing {date_str}*",

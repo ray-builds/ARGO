@@ -41,7 +41,7 @@
             <div class="card">
                 <div class="card-header">
                     <h2 class="card-title">📧 CEO Email Inbox</h2>
-                    <div style="display:flex; gap:8px;">
+                    <div class="dashboard-action-group">
                         <button class="btn btn-sm btn-ghost" id="fetch-emails-btn"
                                 onclick="fetchEmails('{{ user.email if user else '' }}')">
                             Refresh
@@ -69,7 +69,7 @@
                         </div>
                     </div>
 
-                    <button class="btn btn-sm btn-danger" onclick="archiveAllSkip()" style="margin-top: 12px;">
+                    <button class="btn btn-sm btn-danger dashboard-danger-btn" onclick="archiveAllSkip()">
                         Archive all SKIP
                     </button>
                 </div>
@@ -123,6 +123,51 @@
 .dashboard-cols        { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .dashboard-col-left,
 .dashboard-col-right   { display: flex; flex-direction: column; gap: 16px; }
+
+.dashboard-grid .btn.btn-sm {
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dashboard-action-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.dashboard-grid .tag-filter-bar {
+    gap: 8px;
+}
+
+.dashboard-grid .tag-filter-btn {
+    min-height: 34px;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 10px;
+}
+
+.dashboard-grid .email-card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.dashboard-grid .email-card-actions .btn {
+    min-width: 78px;
+}
+
+.dashboard-danger-btn {
+    margin-top: 14px;
+    min-width: 170px;
+}
 
 @media (max-width: 1100px) {
     .dashboard-cols { grid-template-columns: 1fr; }

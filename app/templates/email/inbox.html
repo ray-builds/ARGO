@@ -3,11 +3,10 @@
 {% block page_title %}Email Inbox{% endblock %}
 
 {% block topbar_actions %}
-<button class="btn btn-sm btn-primary" id="fetch-emails-btn"
-        onclick="fetchEmails('{{ user.email if user else '' }}')">
-    ↻ Refresh
-</button>
-<button class="btn btn-sm btn-danger" onclick="archiveAllSkip()">
+<span id="realtime-indicator" class="realtime-indicator" title="Realtime inbox stream">
+    <span class="realtime-dot"></span> Live
+</span>
+<button class="btn btn-danger" onclick="archiveAllSkip()">
     Archive SKIP
 </button>
 {% endblock %}
@@ -154,6 +153,10 @@
 .reply-panel__editor { width:100%; font-family:inherit; font-size:13px; padding:8px; }
 .reply-panel__flags .flag-warning { color:#b45309; font-size:12px; }
 .reply-panel__actions { display:flex; gap:8px; justify-content:flex-end; }
+.realtime-indicator { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; background:rgba(16,185,129,0.1); color:#10b981; font-size:12px; font-weight:600; }
+.realtime-indicator.stale { background:rgba(220,38,38,0.1); color:#dc2626; }
+.realtime-dot { width:8px; height:8px; border-radius:50%; background:currentColor; box-shadow:0 0 0 0 currentColor; animation:realtime-pulse 1.6s infinite; }
+@keyframes realtime-pulse { 0%{box-shadow:0 0 0 0 rgba(16,185,129,0.6);} 70%{box-shadow:0 0 0 8px rgba(16,185,129,0);} 100%{box-shadow:0 0 0 0 rgba(16,185,129,0);} }
 </style>
 {% endblock %}
 
@@ -240,10 +243,18 @@ async function sendReply() {
 
 // Realtime inbox: server pushes NEW_EMAIL frames via WebSocket so there is
 // no need for a manual Synchronize button.
+function _setRealtimeStatus(live) {
+    const el = document.getElementById('realtime-indicator');
+    if (!el) return;
+    el.classList.toggle('stale', !live);
+    el.querySelector('.realtime-dot').nextSibling.nodeValue = live ? ' Live' : ' Reconnecting…';
+}
+
 function connectRealtimeInbox() {
     try {
         const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
         const ws = new WebSocket(`${proto}://${window.location.host}/api/ws/inbox`);
+        ws.onopen = function () { _setRealtimeStatus(true); };
         ws.onmessage = function (evt) {
             let msg;
             try { msg = JSON.parse(evt.data); } catch (_) { return; }
@@ -253,9 +264,10 @@ function connectRealtimeInbox() {
             }
         };
         ws.onclose = function () {
+            _setRealtimeStatus(false);
             setTimeout(connectRealtimeInbox, 5000);
         };
-    } catch (_) { /* websockets unavailable — fallback polling covers us */ }
+    } catch (_) { _setRealtimeStatus(false); }
 }
 
 async function loadEmails() {

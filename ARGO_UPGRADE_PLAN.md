@@ -2329,16 +2329,16 @@ Work through these in order. Check each off before moving to the next.
 ### Phase 1 — Foundation (Week 1-2)
 - [x] Section 0: Replace ALL system prompts with upgraded versions
 - [x] Section 1.1: Implement Graph webhook subscription endpoint
-- [ ] Section 1.2: Remove manual sync button; implement WebSocket inbox updates
+- [x] Section 1.2: Remove manual sync button; implement WebSocket inbox updates
 - [x] Section 1.3: Subscription renewal background job
 - [x] Section 2: OneDrive service + folder structure + auto-archiving
 - [ ] Run all Section 1-2 tests → all pass
 
 ### Phase 2 — Reply & Meetings (Week 3-4)
-- [ ] Section 3: Email reply button + AI suggestion endpoint + React UI
+- [x] Section 3: Email reply button + AI suggestion endpoint + React UI
 - [x] Section 4: Teams recording watcher + VTT parser + Whisper fallback
 - [x] Section 4: Meeting intelligence prompt + summary storage
-- [ ] Section 4: Meetings tab in frontend
+- [x] Section 4: Meetings tab in frontend
 - [ ] Run all Section 3-4 tests → all pass
 
 ### Phase 3 — WhatsApp & Research (Week 5-6)
@@ -2353,7 +2353,7 @@ Work through these in order. Check each off before moving to the next.
 ### Phase 4 — Intelligence Layer (Week 7-8)
 - [x] Section 7: Portfolio intelligence with Yahoo Finance prices
 - [x] Section 7: Pre-built scenario analysis templates
-- [ ] Section 7: Portfolio dashboard frontend
+- [x] Section 7: Portfolio dashboard frontend
 - [x] Section 8: Economic calendar + impact assessment
 - [x] Section 8: Central bank language tracker
 - [x] Section 8: On-release commentary + Teams/WhatsApp alerts
